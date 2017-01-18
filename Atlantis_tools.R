@@ -212,26 +212,26 @@ convex<-function(data = NULL, lon = NULL, lat = NULL, positive=FALSE){
 }
 
 FG <- function(data, column=1){
-    data$FG <- ifelse(data[, column] %in% c('Callanthias platei', 'Pampanito', 'Chromis meridiana', 'Scartichthys variolatus','Suezichthys sp.','Malapterus reticulatus','Pseudolabrus gayi','Kyphosus cinerascens','Graniento'), 'Small pelagic fish',
-               ifelse(data[, column] %in% c('Corvina', 'Jurel', 'Jurelillo'), 'Large pelagic fish',
-               ifelse(data[, column] ==  'Vidriola', 'Vidriola',
-               ifelse(data[, column] %in% c('Chironemus bicornis', 'Colorado', 'Cabrilla', 'Chancharro','Aseraggodes bahamondei', 'Pez Mariposa','Jerguilla', 'Monocentris reedi'), 'Small benthic fish',
-               ifelse(data[, column] == 'Alfonsino', 'Alfonsino',
-               ifelse(data[, column] %in% c('Bacalao', 'Lenguado', 'Paralabrax sp.', 'Aseraggodes bahamondei', 'Congrio', 'Lotella fernandeziana', 'Salmon'), 'Large benthic fish',
+    data$FG <- ifelse(data[, column] %in% c('Callanthias platei', 'Pampanito', 'Chromis meridiana', 'Scartichthys variolatus','Suezichthys sp.','Malapterus reticulatus','Pseudolabrus gayi','Kyphosus cinerascens','Graniento'), 'SPF',
+               ifelse(data[, column] %in% c('Corvina', 'Jurel', 'Jurelillo'), 'LPF',
+               ifelse(data[, column] ==  'Vidriola', 'VID',
+               ifelse(data[, column] %in% c('Chironemus bicornis', 'Colorado', 'Cabrilla', 'Chancharro','Aseraggodes bahamondei', 'Pez Mariposa','Jerguilla', 'Monocentris reedi'), 'SBF',
+               ifelse(data[, column] == 'Alfonsino', 'ALF',
+               ifelse(data[, column] %in% c('Bacalao', 'Lenguado', 'Paralabrax sp.', 'Aseraggodes bahamondei', 'Congrio', 'Lotella fernandeziana', 'Salmon'), 'LBF',
                ifelse(data[, column] == 'Tollo', 'CHO',
-               ifelse(data[, column] == 'Anguila', 'Anguila',
-               ifelse(data[, column] %in% c('Caracol Blanco', 'Ostra', 'Loco', 'Chiton', 'Gastropod', 'Slug', 'Snail'), 'Mollusca',
-               ifelse(data[, column] %in% c('Centolla', 'Jaiva', 'Estomatopodo', 'shrimp'), 'Small Crustacean',
-               ifelse(data[, column] == 'Pulpo', 'Octupus',
+               ifelse(data[, column] == 'Anguila', 'ANG',
+               ifelse(data[, column] %in% c('Caracol Blanco', 'Ostra', 'Loco', 'Chiton', 'Gastropod', 'Slug', 'Snail'), 'MOL',
+               ifelse(data[, column] %in% c('Centolla', 'Jaiva', 'Estomatopodo', 'shrimp'), 'SCR',
+               ifelse(data[, column] == 'Pulpo', 'OCT',
                ifelse(data[, column] == 'Lobo', 'OTA',
-               ifelse(data[, column] == 'Breca', 'Breca',
-               ifelse(data[, column] == 'Langosta', 'Lobster',
-               ifelse(data[, column] == 'Cangrejo dorado', 'Golden Crab',
-               ifelse(data[, column] %in% c('Actinia', 'Amphiura', 'Anemone', 'Erizo', 'Estrella de mar', 'Echinoide'), 'Benthic Carnivorous',
-               ifelse(data[, column] %in% c('Bernacle', 'Black hydrozoan', 'Briozoo', 'Cucumber', 'Encrusting bryozoan', 'Hydrozoo', 'Polychaete', 'Worm', 'Sponge'), 'Benthic feeder',
-               ifelse(data[, column] %in% c('Bare Rock', 'Ruble', 'Sand'), 'Sediment',
-               ifelse(data[, column] %in% c('Brown Alga', 'Green Alga', 'Red Alga'), 'Macro Algae',
-               ifelse(data[, column] %in% c('Coral'), 'Coral', NA))))))))))))))))))))
+               ifelse(data[, column] == 'Breca', 'BRC',
+               ifelse(data[, column] == 'Langosta', 'SPL',
+               ifelse(data[, column] == 'Cangrejo dorado', 'GCR',
+               ifelse(data[, column] %in% c('Actinia', 'Amphiura', 'Anemone', 'Erizo', 'Estrella de mar', 'Echinoide'), 'BCA',
+               ifelse(data[, column] %in% c('Bernacle', 'Black hydrozoan', 'Briozoo', 'Cucumber', 'Encrusting bryozoan', 'Hydrozoo', 'Polychaete', 'Worm', 'Sponge'), 'BFF',
+               ifelse(data[, column] %in% c('Bare Rock', 'Ruble', 'Sand'), 'SED',
+               ifelse(data[, column] %in% c('Brown Alga', 'Green Alga', 'Red Alga'), 'MA',
+               ifelse(data[, column] %in% c('Coral'), 'COR', NA))))))))))))))))))))
     return(data)
 }
 
