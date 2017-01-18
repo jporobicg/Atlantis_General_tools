@@ -506,7 +506,20 @@ correct <- function(real.pos, x = 2, y = 1){
     return(real.pos)
 }
 
-
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title von Bertalanfy growth equation
+##' @param linf Asymptotic length or L infinity (if you work in fisheries)
+##' @param k Individual growth rate
+##' @param to Initial size of the organism and is defined as age at which the organisms would have had zero size
+##' @param age Current age of the organism
+##' @return Return the length of the organism at the 'age'
+##' @author Demiurgo
+vb <- function(linf, k, to, age){
+    l <- linf * (1 - exp(-k * (age - to)))
+    return(l)
+}
 
 
 dup.row <- function(Dat, Expand){
