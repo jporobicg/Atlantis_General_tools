@@ -804,11 +804,14 @@ init.number <- function(data, in.bios, boxes, groups, lfd){
     ord.pool   <- which(colnames(prp.box) %in% N.pool$FG)
     ##~ data in a dataframe
     N          <- array(NA, dim = c(length(ord.pool),nrow(prp.box)))
+    namN       <- vector('character')
     for( i in 1 : length(ord.pool)){
-        N[i, ] <- as.numeric(prp.box[,ord.pool[i]] * N.pool$N[i]  )
+        N[i, ] <- as.numeric(prp.box[,ord.pool[i]] * N.pool$N[i])
+        pos.n  <- with(groups, which(Code %in% N.pool$FG[i]))
+        namN    <- c(namN, paste(groups$Name[pos.n], '_N', sep = ''))
     }
-    ##~ added the name of each row
-    row.names(N) <- paste(N.pool$FG, '_N', sep = '')
+    ## ##~ added the name of each row
+    row.names(N) <- namN
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
     ## ~         NUMBER ESTIMATION      ~ ##
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
