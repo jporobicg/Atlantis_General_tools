@@ -763,3 +763,87 @@ movavg <- function(x, lag){
     out[is.na(out)] <- 0
     return(out)
 }
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Abunance initial condition
+##' @param data Abundance observed by Atlantis box
+##' @param in.bios Initial Biomass
+##' @param boxes Boxes information from BGM files
+##' @param groups Functional groups information from the csv file
+##' @param lfd Lenght frequency by cohort
+##' @return Matrix with number or biomass (N) by Functional group
+##' @author Demiurgo
+init.number <- function(data, in.bios, boxes, groups, lfd){
+    ## if the Biomass or number is empty the code will use the distribution assuming that
+    ## the proportion by box is given or the proportion of cover.
+    area  <- boxes[order(boxes$box_id), ]$area
+    noBio <- which(is.na(in.bios$BioNumber))
+    idx   <- which(colnames(data) %in% in.bios$FG[noBio])
+    for(i in 1 : length(noBio)){
+        in.bios$BioNumber[noBio[i]] <- sum(data[, idx[i]] *  area)
+    }
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    ## ~             BIOMASSS POOLS ESTIMATION          ~ ##
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    ##~ Biomass pools,  stimation of initial abundance by box
+    b.pools <- groups$Code[which(groups$NumCohorts == 1)]
+    ##~ which functional groups are biomass pool
+    i.pools <- which(colnames(data) %in% b.pools)
+    ##~ Proportion by box
+    prp.box <- data[, i.pools] / colSums(data[, i.pools])
+    ##~ transfor from number to Biomass using the mean weight
+    n.pools                    <- which(in.bios$FG %in% b.pools & in.bios$type == 'N')
+    in.bios$BioNumber[n.pools] <- in.bios$BioNumber[n.pools] * in.bios$weight[n.pools]
+    ##~ Transform the weight in Nitrogen for the Biomass
+    only.pools <- which(in.bios$FG %in% b.pools)
+    N.pool     <-  with(in.bios, data.frame(FG  = as.character(FG[only.pools]),
+                                            N  = weight2N(BioNumber[only.pools], 'g', reserve = FALSE)))
+    ##~ match the same order of columns
+    ord.pool   <- which(colnames(prp.box) %in% N.pool$FG)
+    ##~ data in a dataframe
+    N          <- array(NA, dim = c(length(ord.pool),nrow(prp.box)))
+    for( i in 1 : length(ord.pool)){
+        N[i, ] <- as.numeric(prp.box[,ord.pool[i]] * N.pool$N[i]  )
+    }
+    ##~ added the name of each row
+    row.names(N) <- paste(N.pool$FG, '_N', sep = '')
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    ## ~         NUMBER ESTIMATION      ~ ##
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    ## I will Use the same abundance for eat class. I can provided the age structure but I',  azy to do it
+    ## Convert Biomass to number
+    numb    <- groups$Code[which(groups$NumCohorts > 1)]
+    ##~ which functional groups are biomass pool
+    i.numb  <- which(colnames(data) %in% numb)
+    o.numb  <- which(in.bios$FG %in% numb)
+    ##~ Proportion by box
+    prp.box <- data[, i.numb] / colSums(data[, i.numb])
+    ##~ change from Biomass to numbers
+    n.numb                    <- which(in.bios$FG %in% numb & in.bios$type == 'B')
+    ##~ I pass from tons to gr and then number (the mean weight is on gr)
+    in.bios$BioNumber[n.numb] <- (in.bios$BioNumber[n.numb] * 1000000) / in.bios$weight[n.numb]
+    ##~ Transform into number by cohort and area
+    nam <- vector('character')
+    for(i in o.numb){
+        loc         <- which(lfd$FG %in% in.bios$FG[i])
+        l.prop      <- which(colnames(prp.box) %in% in.bios$FG[i])
+        ## By cohort
+        N.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$BioNumber[i])
+        ## By Area
+        tmp <- array(NA, dim = c(groups$NumCohorts[which(groups$Code %in% in.bios$FG[i])], nrow(prp.box)))
+        for(j in 1 : sum(N.at.Cohort > 0)){
+            tmp[j, ] <- prp.box[,  l.prop] * N.at.Cohort[j]
+            nam      <- c(nam, paste(in.bios$FG[i], j, sep = ''))
+        }
+        if(i == o.numb[1]){
+            out <- tmp
+        } else {
+            out <- rbind(out, tmp)
+        }
+    }
+    rownames(out) <- nam
+    output        <- rbind(N, out)
+    return(output)
+}
