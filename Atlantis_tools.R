@@ -225,13 +225,14 @@ FG <- function(data, column=1){
                ifelse(data[, column] == 'Pulpo', 'OCT',
                ifelse(data[, column] == 'Lobo', 'OTA',
                ifelse(data[, column] == 'Breca', 'BRC',
+               ifelse(data[, column] == 'Orange roughy', 'ORO',
                ifelse(data[, column] == 'Langosta', 'SPL',
                ifelse(data[, column] == 'Cangrejo dorado', 'GCR',
                ifelse(data[, column] %in% c('Actinia', 'Amphiura', 'Anemone', 'Erizo', 'Estrella de mar', 'Echinoide'), 'BCA',
                ifelse(data[, column] %in% c('Bernacle', 'Black hydrozoan', 'Briozoo', 'Cucumber', 'Encrusting bryozoan', 'Hydrozoo', 'Polychaete', 'Worm', 'Sponge'), 'BFF',
                ifelse(data[, column] %in% c('Bare Rock', 'Ruble', 'Sand'), 'SED',
                ifelse(data[, column] %in% c('Brown Alga', 'Green Alga', 'Red Alga'), 'MA',
-               ifelse(data[, column] %in% c('Coral'), 'COR', NA))))))))))))))))))))
+               ifelse(data[, column] %in% c('Coral'), 'COR', NA)))))))))))))))))))))
     return(data)
 }
 
