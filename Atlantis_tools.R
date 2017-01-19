@@ -838,7 +838,8 @@ init.number <- function(data, in.bios, boxes, groups, lfd){
         tmp <- array(NA, dim = c(groups$NumCohorts[which(groups$Code %in% in.bios$FG[i])], nrow(prp.box)))
         for(j in 1 : sum(N.at.Cohort > 0)){
             tmp[j, ] <- prp.box[,  l.prop] * N.at.Cohort[j]
-            nam      <- c(nam, paste(in.bios$FG[i], j, sep = ''))
+            pos.n    <- with(groups, which(Code %in% in.bios$FG[i]))
+            nam     <- c(nam, paste(groups$Name[pos.n], j, '_Nums', sep = ''))
         }
         if(i == o.numb[1]){
             out <- tmp
