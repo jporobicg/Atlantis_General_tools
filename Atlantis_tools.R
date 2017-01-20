@@ -230,9 +230,10 @@ FG <- function(data, column=1){
                ifelse(data[, column] == 'Cangrejo dorado', 'GCR',
                ifelse(data[, column] %in% c('Actinia', 'Amphiura', 'Anemone', 'Erizo', 'Estrella de mar', 'Echinoide'), 'BCA',
                ifelse(data[, column] %in% c('Bernacle', 'Black hydrozoan', 'Briozoo', 'Cucumber', 'Encrusting bryozoan', 'Hydrozoo', 'Polychaete', 'Worm', 'Sponge'), 'BFF',
-               ifelse(data[, column] %in% c('Bare Rock', 'Ruble', 'Sand'), 'SED',
+               ifelse(data[, column] %in% c('Bare Rock', 'Ruble'), 'ROC',
+               ifelse(data[, column] == 'Sand', 'SAN',
                ifelse(data[, column] %in% c('Brown Alga', 'Green Alga', 'Red Alga'), 'MA',
-               ifelse(data[, column] %in% c('Coral'), 'COR', NA)))))))))))))))))))))
+               ifelse(data[, column] %in% c('Coral'), 'COR', NA))))))))))))))))))))))
     return(data)
 }
 
@@ -773,9 +774,10 @@ movavg <- function(x, lag){
 ##' @param boxes Boxes information from BGM files
 ##' @param groups Functional groups information from the csv file
 ##' @param lfd Lenght frequency by cohort
+##' @param cover.d Data frame witht the proportion of cover by box
 ##' @return Matrix with number or biomass (N) by Functional group
 ##' @author Demiurgo
-init.number <- function(data, in.bios, boxes, groups, lfd){
+init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     ## if the Biomass or number is empty the code will use the distribution assuming that
     ## the proportion by box is given or the proportion of cover.
     area  <- boxes[order(boxes$box_id), ]$area
@@ -812,6 +814,15 @@ init.number <- function(data, in.bios, boxes, groups, lfd){
     }
     ## ##~ added the name of each row
     row.names(N) <- namN
+
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    ## ~               Adding the cover information           ~ ##
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    cov.pos <- which(groups$Code %in% colnames(cover.d))
+    cov.nam <- c(paste(groups$Name[cov.pos], '_Cover', sep = ''), 'reef', 'soft')
+    colnames(cover.d)[2 : ncol(cover.d)] <- cov.nam
+    cov.dat <- t(cover.d)[ - 1, ]
+
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
     ## ~         NUMBER ESTIMATION      ~ ##
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
@@ -848,6 +859,6 @@ init.number <- function(data, in.bios, boxes, groups, lfd){
         }
     }
     rownames(out) <- nam
-    output        <- rbind(N, out)
+    output        <- rbind(N, out, cov.dat)
     return(output)
 }
