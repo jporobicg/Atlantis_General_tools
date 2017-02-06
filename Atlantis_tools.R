@@ -808,9 +808,10 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     N          <- array(NA, dim = c(length(ord.pool),nrow(prp.box)))
     namN       <- vector('character')
     for( i in 1 : length(ord.pool)){
-        N[i, ] <- as.numeric(prp.box[,ord.pool[i]] * N.pool$N[i])
+        prop   <- prp.box[,ord.pool[i]] / sum(prp.box[,ord.pool[i]])
+        N[i, ] <- as.numeric(prop * N.pool$N[i])
         pos.n  <- with(groups, which(Code %in% N.pool$FG[i]))
-        namN    <- c(namN, paste(groups$Name[pos.n], '_N', sep = ''))
+        namN   <- c(namN, paste(groups$Name[pos.n], '_N', sep = ''))
     }
     ## ##~ added the name of each row
     row.names(N) <- namN
@@ -821,6 +822,7 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     cov.pos <- which(groups$Code %in% colnames(cover.d))
     cov.nam <- c(paste(groups$Name[cov.pos], '_Cover', sep = ''), 'reef', 'soft')
     colnames(cover.d)[2 : ncol(cover.d)] <- cov.nam
+    cover.d$Rugosity <- rowSums(cover.d[, - c(1, 5)])
     cov.dat <- t(cover.d)[ - 1, ]
 
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
@@ -829,36 +831,66 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     ## I will Use the same abundance for eat class. I can provided the age structure but I',  azy to do it
     ## Convert Biomass to number
     numb    <- groups$Code[which(groups$NumCohorts > 1)]
+    cohorts <- groups$NumCohorts[which(groups$NumCohorts > 1)]
     ##~ which functional groups are biomass pool
     i.numb  <- which(colnames(data) %in% numb)
     o.numb  <- which(in.bios$FG %in% numb)
     ##~ Proportion by box
     prp.box <- data[, i.numb] / colSums(data[, i.numb])
     ##~ change from Biomass to numbers
-    n.numb                    <- which(in.bios$FG %in% numb & in.bios$type == 'B')
-    ##~ I pass from tons to gr and then number (the mean weight is on gr)
-    in.bios$BioNumber[n.numb] <- (in.bios$BioNumber[n.numb] * 1000000) / in.bios$weight[n.numb]
+
+    n.numb          <- which(in.bios$FG %in% numb & in.bios$type == 'B')
+    in.bios$fg.Nums <- in.bios$BioNumber
+    in.bios$RN      <- in.bios$SN <- NA
+    ## numbers
+    in.bios$fg.Nums[n.numb] <-  (in.bios$BioNumber[n.numb] * 1000000) / in.bios$weight[n.numb]
+    ## Geting the Reserve nitrogenthe weight in gr
+    in.bios$fg.Weight <- with(in.bios, fg.Nums * weight)
+    ## Structural weight
+    in.bios$SN[o.numb] <- with(in.bios, weight2N(fg.Weight[o.numb], 'g', reserve = FALSE))
+    ## Reserve Weight
+    in.bios$RN[o.numb] <- with(in.bios, weight2N(fg.Weight[o.numb], 'g'))
+
+    ## in.bios$fg.Nums[o.numb]
+    ## ##~ I pass from tons to gr and then number (the mean weight is on gr)
+    ## in.bios$BioNumber[n.numb] <- (in.bios$BioNumber[n.numb] * 1000000) / in.bios$weight[n.numb]
     ##~ Transform into number by cohort and area
-    nam <- vector('character')
+    namRN <- namSN <- nam <- vector('character')
+
+
     for(i in o.numb){
         loc         <- which(lfd$FG %in% in.bios$FG[i])
         l.prop      <- which(colnames(prp.box) %in% in.bios$FG[i])
         ## By cohort
-        N.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$BioNumber[i])
+        N.at.Cohort  <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$fg.Nums[i])
+        RN.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$RN[i])
+        SN.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$SN[i])
         ## By Area
-        tmp <- array(NA, dim = c(groups$NumCohorts[which(groups$Code %in% in.bios$FG[i])], nrow(prp.box)))
+        tmp.N  <- array(NA, dim = c(groups$NumCohorts[which(groups$Code %in% in.bios$FG[i])], nrow(prp.box)))
+        tmp.SN <- tmp.RN <- tmp.N
         for(j in 1 : sum(N.at.Cohort > 0)){
-            tmp[j, ] <- prp.box[,  l.prop] * N.at.Cohort[j]
-            pos.n    <- with(groups, which(Code %in% in.bios$FG[i]))
-            nam     <- c(nam, paste(groups$Name[pos.n], j, '_Nums', sep = ''))
+            prop        <- prp.box[,  l.prop] / sum(prp.box[,  l.prop])
+            tmp.N[j, ]  <- prop * N.at.Cohort[j]
+            tmp.RN[j, ] <- prop * RN.at.Cohort[j]
+            tmp.SN[j, ] <- prop * SN.at.Cohort[j]
+            pos.n       <- with(groups, which(Code %in% in.bios$FG[i]))
+            nam         <- c(nam, paste(groups$Name[pos.n], j, '_Nums', sep = ''))
+            namSN       <- c(namSN, paste(groups$Name[pos.n], j, '_StructN', sep = ''))
+            namRN       <- c(namRN, paste(groups$Name[pos.n], j, '_ResN', sep = ''))
         }
         if(i == o.numb[1]){
-            out <- tmp
+            out    <- tmp.N
+            out.SN <- tmp.SN
+            out.RN <- tmp.RN
         } else {
-            out <- rbind(out, tmp)
+            out <- rbind(out, tmp.N)
+            out.SN <- rbind(out.SN, tmp.SN)
+            out.RN <- rbind(out.RN, tmp.RN)
         }
     }
-    rownames(out) <- nam
-    output        <- rbind(N, out, cov.dat)
+    rownames(out)    <- nam
+    rownames(out.SN) <- namSN
+    rownames(out.RN) <- namRN
+    output           <- rbind(N, out, out.SN, out.RN,cov.dat)
     return(output)
 }
