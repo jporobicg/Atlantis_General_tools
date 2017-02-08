@@ -888,8 +888,6 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
         }
     }
     rownames(out)    <- nam
-    rownames(out.SN) <- namSN
-    rownames(out.RN) <- namRN
     output           <- rbind(N, out, cov.dat)
     return(output)
 }
