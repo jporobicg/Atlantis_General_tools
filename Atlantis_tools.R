@@ -645,17 +645,15 @@ weight2N <- function(weight, metric = 'mg', wet = TRUE, reserve = TRUE){
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
     if(metric == 'g')  weight <- weight * 1000
     if(metric == 'Kg') weight <- weight * 1000000
-
     ## Wet to dry weight
     if(wet) weight <- (weight / 20)
-
     ## From dry weight to nitrogen
     weight  <- weight / 5.7
-
+    ## Structural weight
+    weight  <- weight / 3.65
     ## If is reserve
     if(isTRUE(reserve)){
-        factor  <- weight / 3.65
-        weight  <- factor * 2.65
+        weight  <- weight * 2.65
     }
     return(weight)
 }
@@ -670,7 +668,7 @@ weight2N <- function(weight, metric = 'mg', wet = TRUE, reserve = TRUE){
 ##' @param wet Logical vector for the type weight, the default the is wet weight
 ##' @param spw.rate Spawning rate, vector of values that represent the increase in waeight due to reproduction
 ##' @param mature Logical, vector of TRUE or FALSE to descrive if the FG at that weight/length its mature
-##' @param AgeClass
+##' @param AgeClass Age classes by cohort
 ##' @return A vector with the values of mum for each length (mgNd-1)
 ##' @author Demiurgo
 mum.f <- function(length, weight, metric  = 'mg', wet = TRUE, spw.rate, mature, AgeClass){
@@ -890,4 +888,77 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     rownames(out)    <- nam
     output           <- rbind(N, out, cov.dat)
     return(output)
+}
+
+read.dat <- function(file){
+    options(warn=-1)
+    ##-----------------------------------------------------------#
+    ##  Function to read data file in a ".dat" files             #
+    ##        Creador:  Steve Martell  Mod: Javier Porobic       #
+    ##-----------------------------------------------------------#
+    ifile <- scan(file, what = "character", flush = TRUE, blank.lines.skip = FALSE, quiet = TRUE)
+    idx   <- sapply(as.double(ifile), is.na)
+    vnam  <- ifile[idx]	                    #list names
+    nv    <- length(vnam)	                    #number of objects
+    A     <- list()
+    ir    <- 0
+    for(i in 1 : nv)
+    {
+        ir <- match(vnam[i], ifile)
+        if(i != nv) irr <- match(vnam[i + 1], ifile) else irr = length(ifile) + 1 #next row
+        dum <- NA
+        if(irr-ir==2) dum <- as.double(scan(file, skip = ir, nlines = 1, quiet = TRUE, what = ""))
+        if(irr-ir>2)  dum <- as.matrix(read.table(file, skip = ir, nrow = irr-ir-1, fill = TRUE))
+        if(is.numeric(dum))#Logical test to ensure dealing with numbers
+        {
+            A[[ vnam[i ]]] <- dum
+        }
+    }
+    return(A)
+}
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param text Biological parametar file for Atlatnis
+##' @param pattern Text that you are looking
+##' @param FG Name of the functional groups
+##' @param Vector Logic argument, if the data is on vectors or not
+##' @return A matrix with the values from the .prm file
+##' @author Demiurgo
+text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
+    if(!isTRUE(Vector)){
+        text <- text[grep(pattern = pattern, text)]
+        txt  <- gsub(pattern = '[ ]+' ,  '|',  text)
+        col1 <- col2 <- vector()
+        for( i in 1 : length(txt)){
+            tmp     <- unlist(strsplit(txt[i], split = '|', fixed = TRUE))
+            tmp2    <- unlist(strsplit(tmp[1], split = '_'))
+            id.co   <- which(tmp2 %in% FG )
+            col1[i] <- tmp2[id.co]
+            col2[i] <- as.numeric(tmp[2])
+        }
+        return(data.frame(FG = col1, Value = col2))
+    } else {
+        l.pat <- grep(pattern = pattern, text)
+        nam   <- gsub(pattern = '[ ]+' ,  '|',  text[l.pat])
+        fg    <- vector()
+        pos   <- 1
+        for( i in 1 : length(nam)){
+            tmp     <- unlist(strsplit(nam[i], split = '|', fixed = TRUE))
+            if(tmp[1]== '#') next
+            fg[pos] <- tmp[1]
+            if(pos == 1) {
+                pp.mat <- matrix(as.numeric(unlist(strsplit(text[l.pat[i] + 1], split = ' ', fixed = TRUE))), nrow = 1)
+                pos    <- pos + 1
+            } else {
+                pp.tmp <- matrix(as.numeric(unlist(strsplit(text[l.pat[i] + 1], split = ' ', fixed = TRUE))), nrow = 1)
+                pp.mat <- rbind(pp.mat, pp.tmp)
+                pos    <- pos + 1
+            }
+        }
+        if(all(is.na(pp.mat[, 1]))) pp.mat <- pp.mat[, - 1]
+        row.names(pp.mat)                  <- fg
+        return(pp.mat)
+    }
 }
