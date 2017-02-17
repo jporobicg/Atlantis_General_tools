@@ -8,6 +8,10 @@
 ##' @return Display in the browser the pPREY matriux,  the initial abundace on prey,  the overlap matrix and the predator preference
 ##' @author Demiurgo
 feeding.mat.shy <- function(prm.file, grp.file, nc.file){
+    ## I need to create something more elegant for this
+    library(shiny)
+    library(ncdf4)
+    library(tidyverser)
     ## Reading files
     groups.csv <- read.csv(grp.file)
     prm        <- readLines(prm.file, warn = FALSE)
