@@ -938,6 +938,7 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
             col1[i] <- tmp2[id.co]
             col2[i] <- as.numeric(tmp[2])
         }
+        if(is.null(FG)) col1 <- rep('FG', length(col2))
         return(data.frame(FG = col1, Value = col2))
     } else {
         l.pat <- grep(pattern = pattern, text)
@@ -953,6 +954,7 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
                 pos    <- pos + 1
             } else {
                 pp.tmp <- matrix(as.numeric(unlist(strsplit(text[l.pat[i] + 1], split = ' ', fixed = TRUE))), nrow = 1)
+                if(ncol(pp.mat) != ncol(pp.tmp)) stop('\nError: The pPrey vector for', tmp[1], ' has ', ncol(pp.tmp))
                 pp.mat <- rbind(pp.mat, pp.tmp)
                 pos    <- pos + 1
             }
@@ -961,4 +963,191 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
         row.names(pp.mat)                  <- fg
         return(pp.mat)
     }
+}
+
+
+## ~~~~~~~~~~~~~~~~~~~~~~~~ ##
+## ~       Diet Checker   ~ ##
+## ~~~~~~~~~~~~~~~~~~~~~~~~ ##
+
+diet.chk <- function(group.file, prm.file, nc.file){
+    library(reshape)
+    library(ggplot2)
+    ## Reading files
+    groups.csv <- read.csv(grp.file)
+    prm        <- readLines(prm.file, warn = FALSE)
+
+    ## Gape size and adult and young age
+    KLP                     <- text2num(prm, 'KLP', FG = as.character(groups.csv$Code))
+    KUP                     <- text2num(prm, 'KUP',  FG = as.character(groups.csv$Code))
+    age                     <- text2num(prm, '_age_mat', FG = as.character(groups.csv$Code))
+    Gape                    <- data.frame(FG = KLP$FG, KLP = KLP$Value, KUP = KUP$Value, Age.Adult = NA)
+    pos.Age                 <- which(Gape$FG %in% age$FG)
+    Gape$Age.Adult[pos.Age] <- age$Value
+    Gape$Age.Young          <- Gape$Age.Adult - 1
+    ## availability matrix
+    Ava.mat            <- text2num(prm, 'pPREY', Vector=TRUE)
+    colnames(Ava.mat)  <- c(as.character(groups.csv$Code), 'DLsed', 'DRsed', 'DCsed')
+    Is.off             <- which(groups.csv$IsTurnedOn == 0)
+    ## getting the RN and SN from the NC file
+    nc.out <- nc_open(nc.file)
+    FG     <- as.character(groups.csv$Name)
+    Biom.N <- array(data = NA, dim = c(length(FG), max(groups.csv$NumCohorts)))
+    Struct <- Biom.N
+    for(code in 1 : length(FG)){
+        if(groups.csv$NumCohorts[code] == 1 && groups.csv$IsTurnedOn[code] == 1){
+            N.tot <- ncvar_get(nc.out, paste(FG[code], "_N", sep = ""))
+            if(all(is.na(N.tot)) || all(N.tot == 0) || sum(N.tot, na.rm = TRUE) == 0){
+                Biom.N[code, 1] <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "_FillValue")$value
+            } else {
+                if(length(dim(N.tot)) > 3){
+                    N.tot <- N.tot[, , 1]
+                }
+                Biom.N[code, 1] <- sum(N.tot, na.rm = TRUE)
+            }
+        } else if(groups.csv$NumCohorts[code] > 1 && groups.csv$IsTurnedOn[code] == 1) {
+            for(cohort in 1 : groups.csv$NumCohorts[code]){
+                StructN <- ncvar_get(nc.out, paste(FG[code], as.character(cohort), "_StructN", sep = ""))
+                ReservN <- ncvar_get(nc.out, paste(FG[code], as.character(cohort), "_ResN", sep = ""))
+                Numb    <- ncvar_get(nc.out, paste(FG[code], as.character(cohort), "_Nums", sep = ""))
+                if(length(dim(ReservN)) > 3){
+                    StructN <- StructN[, , 1]
+                    ReservN <- ReservN[, , 1]
+                }
+                if(length(dim(Numb)) > 3){
+                    Numb    <- Numb[, , 1]
+                }
+                Biom.N[code, cohort] <- (max(colSums(StructN,  na.rm = TRUE), na.rm = TRUE)  +
+                                         max(colSums(ReservN,  na.rm = TRUE), na.rm = TRUE)) *
+                    sum(Numb, na.rm = TRUE)
+                Struct[code, cohort] <- (max(colSums(ReservN,  na.rm = TRUE), na.rm = TRUE)) #* sum(Numb, na.rm = TRUE)
+            }
+        }
+    }
+    nc_close(nc.out)
+    row.names(Biom.N) <- as.character(groups.csv$Code)
+    row.names(Struct) <- as.character(groups.csv$Code)
+    if(length(Is.off) > 0){
+        ## Remove groups that are not On in the model
+        Struct            <- Struct[ - Is.off, ]
+        Biom.N            <- Biom.N[ - Is.off, ]
+    }
+    Gape$Age.Young    <- ifelse(Gape$Age.Young == 0,  1, Gape$Age.Young)
+    ## Pre-Calculations
+    ## Be sure that the FG have the same order
+    Biom.N        <- Biom.N[order(row.names(Biom.N)), ]
+    Struct        <- Struct[order(row.names(Struct)), ]
+    Gape          <- Gape[order(Gape$FG), ]
+    G.pos         <- which(row.names(Struct) %in% Gape$FG)
+    Gape$juv.Min  <- Struct[G.pos, 1] * Gape$KLP
+    for( i in 1 : length(G.pos)){
+        Gape$adult.Min[i]  <- Struct[G.pos[i], Gape$Age.Adult[i]] * Gape$KLP[i]
+        Gape$adult.Max[i]  <- Struct[G.pos[i], length(sum(!is.na(Struct[G.pos[i], ])))] * Gape$KLP[i]
+        Gape$juv.Max[i]    <- Struct[G.pos[i], Gape$Age.Young[i]] * Gape$KUP[i]
+        Gape$JminS[i]      <- Struct[G.pos[i], 1]
+        Gape$AminS[i]      <- Struct[G.pos[i], Gape$Age.Adult[i]]
+        Gape$JmaxS[i]      <- Struct[G.pos[i], Gape$Age.Young[i]]
+        Gape$AmaxS[i]      <- Struct[G.pos[i], length(sum(!is.na(Struct[G.pos[i], ])))]
+    }
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    ## ~        Overlap-Matrix    ~ ##
+    ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+    Over.mat <- Ava.mat * 0
+    Prey     <- colnames(Ava.mat)
+    Pred     <- row.names(Ava.mat)
+    cp <- 2
+    for( py in 1: length(Prey)){
+        for( pd in 1: length(Pred)){
+            c.pred      <- unlist(strsplit(Pred[pd],'pPREY'))[2]
+            predator    <- gsub(pattern = "[[:digit:]]+", '\\1', c.pred)
+            a.pred.prey <- as.numeric(unlist(strsplit(c.pred, predator)))
+            pry.loc     <- which(Gape$FG %in% Prey[py])
+            prd.loc     <- which(Gape$FG %in% predator)
+            if(length(pry.loc) == 0 || is.na(a.pred.prey)){
+                Over.mat [pd, py] <- 1
+            } else {
+                if(a.pred.prey[1] == 1){
+                    ## Young Predator
+                    if(a.pred.prey[2] == 1){
+                        ## Young Prey
+                        Over.mat [pd, py]  <- ifelse(Gape$JminS[pry.loc] >= Gape$juv.Min[prd.loc],
+                                              ifelse(Gape$JminS[pry.loc] <= Gape$juv.Max[prd.loc], 1, 0),
+                                              ifelse(Gape$JmaxS[pry.loc] >= Gape$juv.Min[prd.loc],
+                                              ifelse(Gape$JmaxS[pry.loc] <= Gape$juv.Max[prd.loc], 1, 1), 0))
+                        if(is.na(Over.mat[pd, py])) Over.mat[pd, py] <- 1
+                    } else {
+                        ## Adult Prey
+                        Over.mat [pd, py]  <- ifelse(Gape$AminS[pry.loc] >= Gape$juv.Min[prd.loc],
+                                              ifelse(Gape$AminS[pry.loc] <= Gape$juv.Max[prd.loc], 1, 0),
+                                              ifelse(Gape$AmaxS[pry.loc] >= Gape$juv.Min[prd.loc],
+                                              ifelse(Gape$AmaxS[pry.loc] <= Gape$juv.Max[prd.loc], 1, 1), 0))
+                        if(is.na(Over.mat[pd, py])) Over.mat[pd, py] <- 1
+                    }
+                } else {
+                    ## Adult Predator
+                    if(a.pred.prey[2] == 1){
+                        ## Young Prey
+                        Over.mat [pd, py]  <- ifelse(Gape$JminS[pry.loc] >= Gape$adult.Min[prd.loc],
+                                              ifelse(Gape$JminS[pry.loc] <= Gape$adult.Max[prd.loc], 1, 0),
+                                              ifelse(Gape$JmaxS[pry.loc] >= Gape$adult.Min[prd.loc],
+                                              ifelse(Gape$JmaxS[pry.loc] <= Gape$adult.Max[prd.loc], 1, 1), 0))
+                        if(is.na(Over.mat[pd, py])) Over.mat[pd, py] <- 1
+                    } else {
+                        ## Adult Prey
+                        Over.mat [pd, py]  <- ifelse(Gape$AminS[pry.loc] >= Gape$adult.Min[prd.loc],
+                                              ifelse(Gape$AminS[pry.loc] <= Gape$adult.Max[prd.loc], 1, 0),
+                                              ifelse(Gape$AmaxS[pry.loc] >= Gape$adult.Min[prd.loc],
+                                              ifelse(Gape$AmaxS[pry.loc] <= Gape$adult.Max[prd.loc], 1, 1), 0))
+                        if(is.na(Over.mat[pd, py])) Over.mat[pd, py] <- 1
+                    }
+                }
+            }
+        }
+    }
+    ## total biomasss by Juv and Adults
+    Biom.N  <- Biom.N[order(row.names(Biom.N)), ]
+    fg      <- row.names(Biom.N)
+    bio.juv <- bio.adl <- matrix(NA, ncol = 2, nrow = nrow(Biom.N))
+    for( i in 1 : nrow(Biom.N)){
+        l.age <- which(age$FG == fg[i])
+        if(length(l.age) !=  0){
+            bio.juv[i, ] <- c(fg[i], sum(Biom.N[i, 1 : (age$Value[l.age] - 1)], na.rm = TRUE))
+            bio.adl[i, ] <- c(fg[i], sum(Biom.N[i, age$Value[l.age] : ncol(Biom.N)], na.rm = TRUE))
+        } else {
+            ## For Biomass pool,  only adult
+            bio.juv[i, ] <- c(fg[i], sum(Biom.N[i, 1], na.rm = TRUE))
+            bio.adl[i, ] <- c(fg[i], sum(Biom.N[i, 1], na.rm = TRUE))
+        }
+    }
+    ## Sort based on the order of the prey in the Availavility matrix   ##
+    or.prey <- match(colnames(Over.mat), bio.juv[, 1])
+    bio.juv <- bio.juv[or.prey, ]
+    bio.adl <- bio.adl[or.prey, ]
+    Biom.N
+    ## Real feeding
+    is.feeding <- Over.mat * Ava.mat
+    real.feed  <- is.feeding * NA
+    pred       <- row.names(Over.mat)
+    for( pd in 1 : nrow(is.feeding)){
+        ## Getting the number of biomass needed by each functional group
+        c.pred      <- unlist(strsplit(pred[pd],'pPREY'))[2]
+        predator    <- gsub(pattern = "[[:digit:]]+", '\\1', c.pred)
+        a.pred.prey <- as.numeric(unlist(strsplit(c.pred, predator)))
+        pry.loc     <- which(bio.adl[, 1] %in% predator)
+        if(length(a.pred.prey) == 0 || is.na(a.pred.prey)) a.pred.prey[2] <- 2
+        ## Young Predator
+        if(a.pred.prey[2] == 1){
+            ## Young Prey
+            real.feed[pd, ] <- (is.feeding[pd, ] * as.numeric(bio.juv[, 2]))
+        } else {
+            ## Adult Prey
+            real.feed[pd, ] <- (is.feeding[pd, ] * as.numeric(bio.adl[, 2]))
+        }
+    }
+    ## Plot output
+    real.vec.pprey <- melt(t(log(real.feed)))
+    ggplot(data = real.vec.pprey,
+           aes(x = X1, y = X2, fill = value)) + geom_tile() +
+        scale_fill_gradient(limits=c(0, max(real.vec.pprey$value, na.rm = TRUE)), name = 'Predation value', low="white", high="red", na.value = 'white')  +
+        theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator')+scale_x_discrete(position = "top")
 }
