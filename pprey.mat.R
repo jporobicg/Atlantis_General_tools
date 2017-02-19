@@ -11,6 +11,7 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file){
     ## I need to create something more elegant for this
     library(shiny)
     library(ncdf4)
+    library(reshape)
     library(tidyverse)
     ## Reading files
     groups.csv <- read.csv(grp.file)
