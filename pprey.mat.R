@@ -191,7 +191,17 @@ Bio.func <- function(nc.file, groups.csv){
         if(groups.csv$NumCohorts[code] == 1 && groups.csv$IsTurnedOn[code] == 1){
             N.tot <- ncvar_get(nc.out, paste(FG[code], "_N", sep = ""))
             if(all(is.na(N.tot)) || all(N.tot == 0) || sum(N.tot, na.rm = TRUE) == 0){
+                ## Getting the total volumen
+                water.t <- ncvar_get(nc.out, 'volume')
+                w.depth <- ncvar_get(nc.out, 'nominal_dz')
+                w.depth[is.na(w.depth)] <- 0
+                w.m2    <- colSums(water.t,na.rm=TRUE) / apply(w.depth, 2, function(x) max(x, na.rm = TRUE))
+                w.m2[is.infinite(w.m2)] <- NA
+                w.m2    <- sum(w.m2, na.rm=TRUE)
+                w.m3    <- sum(water.t, na.rm = TRUE)
+                sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
                 Biom.N[code, 1] <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "_FillValue")$value
+                Biom.N[code, 1] <- ifelse(sed == 1, Biom.N[code, 1] * w.m2, Biom.N[code, 1] * w.m3)
             } else {
                 if(length(dim(N.tot)) > 3){
                     N.tot <- N.tot[, , 1]
