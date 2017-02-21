@@ -778,11 +778,14 @@ movavg <- function(x, lag){
 init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     ## if the Biomass or number is empty the code will use the distribution assuming that
     ## the proportion by box is given or the proportion of cover.
-    area  <- boxes[order(boxes$box_id), ]$area
+    area  <- boxes[order(boxes$box_id), ]$area * 1000000 # from k2 to m2
+    depth <- -boxes[order(boxes$box_id), ]$botz
+    depth[depth < 0] <- NA
+    Volumen <- area * depth
     noBio <- which(is.na(in.bios$BioNumber))
     idx   <- which(colnames(data) %in% in.bios$FG[noBio])
     for(i in 1 : length(noBio)){
-        in.bios$BioNumber[noBio[i]] <- sum(data[, idx[i]] *  area)
+        in.bios$BioNumber[noBio[i]] <- sum(data[, idx[i]])
     }
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
     ## ~             BIOMASSS POOLS ESTIMATION          ~ ##
@@ -792,7 +795,11 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     ##~ which functional groups are biomass pool
     i.pools <- which(colnames(data) %in% b.pools)
     ##~ Proportion by box
-    prp.box <- data[, i.pools] / colSums(data[, i.pools])
+    dat.tmp <- data[, i.pools]
+    prp.box <- dat.tmp * NA
+    for( i in 1 : ncol(dat.tmp)){
+        prp.box[, i] <- dat.tmp[, i] / sum(dat.tmp[, i])
+    }
     ##~ transfor from number to Biomass using the mean weight
     n.pools                    <- which(in.bios$FG %in% b.pools & in.bios$type == 'N')
     in.bios$BioNumber[n.pools] <- in.bios$BioNumber[n.pools] * in.bios$weight[n.pools]
@@ -808,6 +815,13 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     for( i in 1 : length(ord.pool)){
         prop   <- prp.box[,ord.pool[i]] / sum(prp.box[,ord.pool[i]])
         N[i, ] <- as.numeric(prop * N.pool$N[i])
+        if(N.pool$FG[i] %in% c('OCT', 'SQD')){
+            N[i, ] <- N[i, ] / (Volumen * 100)
+        } else {
+            N[i, ] <- N[i, ] / area
+        }
+        N[i, is.na(N[i, ])] <- 0
+
         pos.n  <- with(groups, which(Code %in% N.pool$FG[i]))
         namN   <- c(namN, paste(groups$Name[pos.n], '_N', sep = ''))
     }

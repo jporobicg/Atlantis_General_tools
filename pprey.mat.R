@@ -188,6 +188,8 @@ Bio.func <- function(nc.file, groups.csv){
     Biom.N <- array(data = NA, dim = c(length(FG), max(groups.csv$NumCohorts)))
     Struct <- Biom.N
     for(code in 1 : length(FG)){
+        sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
+        unit    <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "units")$value
         if(groups.csv$NumCohorts[code] == 1 && groups.csv$IsTurnedOn[code] == 1){
             N.tot <- ncvar_get(nc.out, paste(FG[code], "_N", sep = ""))
             if(all(is.na(N.tot)) || all(N.tot == 0) || sum(N.tot, na.rm = TRUE) == 0){
@@ -199,12 +201,22 @@ Bio.func <- function(nc.file, groups.csv){
                 w.m2[is.infinite(w.m2)] <- NA
                 w.m2    <- sum(w.m2, na.rm=TRUE)
                 w.m3    <- sum(water.t, na.rm = TRUE)
-                sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
+                #sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
                 Biom.N[code, 1] <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "_FillValue")$value
                 Biom.N[code, 1] <- ifelse(sed == 1, Biom.N[code, 1] * w.m2, Biom.N[code, 1] * w.m3)
             } else {
                 if(length(dim(N.tot)) > 3){
                     N.tot <- N.tot[, , 1]
+                } else if(unit == "mg N m-3"){
+                    water.t <- ncvar_get(nc.out, 'volume')
+                    N.tot   <- N.tot * water.t
+                } else if (unit == 'mg N m-2'){
+                    water.t <- ncvar_get(nc.out, 'volume')
+                    w.depth <- ncvar_get(nc.out, 'nominal_dz')
+                    w.depth[is.na(w.depth)] <- 0
+                    w.m2    <- colSums(water.t,na.rm=TRUE) / apply(w.depth, 2, function(x) max(x, na.rm = TRUE))
+                    w.m2[is.infinite(w.m2)] <- NA
+                    N.tot   <- sum(N.tot * w.m2, na.rm = TRUE)
                 }
                 Biom.N[code, 1] <- sum(N.tot, na.rm = TRUE)
             }
@@ -268,7 +280,7 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
         pos   <- 1
         for( i in 1 : length(nam)){
             tmp     <- unlist(strsplit(nam[i], split = '|', fixed = TRUE))
-            if(tmp[1]== '#') next
+            if(tmp[1] %in% c('#','##', '###')) next
             fg[pos] <- tmp[1]
             if(pos == 1) {
                 pp.mat <- matrix(as.numeric(unlist(strsplit(text[l.pat[i] + 1], split = ' ', fixed = TRUE))), nrow = 1)
@@ -433,7 +445,6 @@ saveData <- function(data) {
     cols     <- c('##    ', colnames(data))
     nprey    <- ncol(data)
     sink(fileName)
-    cat('## pPREY Matrix')
     cat(cols)
     for( i in 1 : length(rows)){
         cat(paste('\n', rows[i], nprey, sep = '  '))
