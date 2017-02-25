@@ -1,10 +1,14 @@
 out.Atlantis <- function(result){
-    df_rel  <- convert_relative_initial(result$structn_age)
-    df_resn <- convert_relative_initial(result$resn_age)
-    df_bio  <- convert_relative_initial(result$biomass_age)
-    df_eat  <- convert_relative_initial(result$eat_age)
-    plots   <- plot_diet(result$biomass_consumed, wrap_col = "agecl", combine_thresh = 7)
-
+    df_rel      <- convert_relative_initial(result$structn_age)
+    df_resn     <- convert_relative_initial(result$resn_age)
+    df_bio      <- convert_relative_initial(result$biomass_age)
+    df_eat      <- convert_relative_initial(result$eat_age)
+    plots       <- plot_diet(result$biomass_consumed, wrap_col = "agecl", combine_thresh = 7)
+    bgm_as_df   <- convert_bgm(result$file[1], result$file[11])
+    bio_spatial <- result$biomass_spatial_stanza
+    bio_spatial$time <- round(((bio_spatial$time+ 1) / (min(bio_spatial$time, na.rm = T) + 1) - 1) * 365)
+    full_grid   <- expand.grid(polygon = unique(bgm_as_df$polygon), layer = min(bio_spatial$layer):max(bio_spatial$layer))
+    full_grid   <- left_join(full_grid, bgm_as_df)
     shinyApp(
         ui <- navbarPage(
             "Type of output",
@@ -40,11 +44,28 @@ out.Atlantis <- function(result){
                      mainPanel(
                          plotOutput('plot8', width = "100%", height = "700px")
                      )
+                     ),
+            tabPanel('Biomass Plots',
+                     sidebarPanel(
+                         selectInput('fg2', 'Functional Group',  unique(bio_spatial$species)),
+                         sliderInput("age", "Age class (Stanza)", 1, max(bio_spatial$species_stanza, na.rm = TRUE), step = 1, value = 1),
+                         sliderInput("time.sp", "time step", 0, max(bio_spatial$time, na.rm = TRUE), step= diff(sort(unique(bio_spatial$time)))[1], value = 0)
+                     ),
+                     mainPanel(
+                         plotOutput('plot9', width = "100%", height = "700px")
+                     )
                      )
         ),
         function(input, output, session) {
             diet.p <- reactive({
                 diet.p <- plots[[which(names(plots) == input$fg)]]
+            })
+            bio.spatial <- reactive({
+                fg.filt     <- filter(bio_spatial, species==input$fg2, time ==input$time.sp, species_stanza==input$age)
+                bio.spatial <- left_join(full_grid, fg.filt, by = c('polygon','layer'))
+            })
+            max.b <- reactive({
+                max.b <- max(filter(bio_spatial, species==input$fg2)$atoutput, na.rm = TRUE)
             })
             output$plot1 <- renderPlot({
                 plot <- plot_line(df_rel, col = "agecl")
@@ -90,6 +111,13 @@ out.Atlantis <- function(result){
                 par(mar=c(5,5,5,5), mgp=c(5,1,0))
                 gridExtra::grid.arrange(diet.p())
             })
+            output$plot9 <- renderPlot({
+                ggplot(data = bio.spatial(), aes(x = long, y = lat, group = polygon, fill = atoutput))+
+                    geom_polygon(colour = "black", size = 0.25, na.rm = TRUE)+
+                    scale_fill_gradient("biomass distribution", limits = c(0, max.b()), low = "royalblue", high = "red",na.value = 'grey80')+
+                    ggplot2::facet_wrap(~layer) +
+                    theme_light()
+            })
             output$numPoints <- renderText({
                 Ava.mat[which(row.names(Ava.mat) == input$ycol), which(colnames(Ava.mat) == input$xcol)]
             })
@@ -133,7 +161,7 @@ out.Atlantis <- function(result){
 ##' @param init Atlantis Input : Initial condition file
 ##' @return Preprosessing output, ready to be use by ggplot2
 ##' @author Demiurgo based on Alex work
-pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init ){
+pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init, extraFG = NULL){
     cat('\n Defining additional variables')
     bboxes    <- get_boundary(boxinfo = load_box(dir, bgm))
     bps       <- load_bps(dir, fgs, init)
@@ -141,6 +169,10 @@ pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, versi
     ## By default data from all groups within the simulation is extracted!
     groups      <- get_groups(dir, fgs)
     groups_age  <- get_age_groups(dir, fgs)
+    if(!is.null(extraFG)) {
+        groups_age  <- c(groups_age, extraFG)
+        cat('\n+++++++++++++\n You add the ', extraFG, 'as extra Functional group\n++++++++++++++++')
+    }
     groups_rest <- groups[!groups %in% groups_age]
     cat('\t\t...Done!')
     cat('\nReading data from Atlantis simulation')
@@ -222,7 +254,7 @@ pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, versi
     ## Aggregate volume vertically.
     vol_ts      <- agg_data(vol, groups = c("time", "polygon"), fun = sum, out = "volume")
     cat('\t\t...Done!')
-    cat('\nCombining objects to a list of preprocessed dataframes')
+    cat('\n\nCombining objects to a list of preprocessed dataframes')
     ## output
     result <- list(
         "biomass"                = biomass,       #1
@@ -246,7 +278,8 @@ pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, versi
         "spatial_overlap"        = sp_overlap,
         "ssb_rec"                = ssb_rec,       #20
         "structn_age"            = structn_age,
-        "vol"                    = vol_ts
+        "vol"                    = vol_ts,
+        'files'                  = c(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init, extraFG)
     )
     cat('\t\t...Done\n\n!')
     return(result)
