@@ -117,6 +117,14 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file){
             observeEvent(input$save, {
                 saveData(N.mat$Ava)
             })
+
+            linex <- reactive( {
+                which(sort(colnames(Ava.mat)) == input$xcol)
+            })
+            liney <- reactive({
+                which(sort(row.names(Ava.mat)) == input$ycol)
+            })
+
             rff <- reactive({
                 t(log(real.feed * N.mat$Ava))
             })
@@ -127,25 +135,41 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file){
                 ggplot(data = melt(rff()),
                        aes(x = X1, y = X2, fill = value)) + geom_tile() +
                     scale_fill_gradient(limits=c(0, max(rff(), na.rm = TRUE)), name = 'Predation value', low="white", high="red", na.value = 'white')  +
-                    theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top")
+                    theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top")+
+                    annotate("rect", xmin = linex() -.5, xmax = linex() +.5, ymin = 0, ymax = ncol(rff()) + 1,
+                             alpha = .1, colour = 'royalblue') +
+                    annotate("rect", xmin =  - .5, xmax = nrow(rff()) + .5, ymin = liney() - .5, ymax = liney() + .5,
+                             alpha = .1, colour = 'royalblue')
             })
             output$plot2 <- renderPlot({
                 ggplot(data = melt(t.o.mat),
                        aes(x = X1, y = X2, fill = value)) + geom_tile(aes( fill = factor(value))) +
                     theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top") +
-                    scale_fill_grey(start = .9, end = 0)
+                    scale_fill_grey(start = .9, end = 0) +
+                    annotate("rect", xmin = linex() -.5, xmax = linex() +.5, ymin = 0, ymax = ncol(t.o.mat) + 1,
+                             alpha = .1, colour = 'royalblue') +
+                    annotate("rect", xmin =  - .5, xmax = nrow(t.o.mat) + .5, ymin = liney() - .5, ymax = liney() + .5,
+                             alpha = .1, colour = 'royalblue')
             })
             output$plot3 <- renderPlot({
                 ggplot(data = melt(t(N.mat$Ava)),
                        aes(x = X1, y = X2, fill = value)) + geom_tile() +
                     scale_fill_gradient(limits=c(0, max(N.mat$Ava, na.rm = TRUE)), name = 'Predation value', low="white", high="red", na.value = 'white')  +
-                    theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top")
+                    theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top")+
+                    annotate("rect", xmin = linex() -.5, xmax = linex() +.5, ymin = 0, ymax = ncol(t(N.mat$Ava)) + 1,
+                             alpha = .1, colour = 'royalblue') +
+                    annotate("rect", xmin =  - .5, xmax = nrow(t(N.mat$Ava)) + .5, ymin = liney() - .5, ymax = liney() + .5,
+                             alpha = .1, colour = 'royalblue')
             })
             output$plot4 <- renderPlot({
                 ggplot(data = melt(rff2()),
                        aes(x = X1, y = X2, fill = value)) + geom_tile() +
                     scale_fill_gradient(limits=c(0, 100), name = 'Precentage of pressure', low="white", high="red", na.value = 'white')  +
-                    theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top")
+                    theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top")+
+                    annotate("rect", xmin = linex() -.5, xmax = linex() +.5, ymin = 0, ymax = ncol(rff2()) + 1,
+                             alpha = .1, colour = 'royalblue') +
+                    annotate("rect", xmin =  - .5, xmax = nrow(rff2()) + .5, ymin = liney() - .5, ymax = liney() + .5,
+                             alpha = .1, colour = 'royalblue')
             })
             output$plot5 <- renderPlot({
                 ggplot(data = b.juv, aes(x = FG, y = log(Biomass), fill=FG)) +
