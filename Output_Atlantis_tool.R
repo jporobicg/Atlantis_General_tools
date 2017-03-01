@@ -33,7 +33,11 @@ out.Atlantis <- function(result){
                                   plotOutput('plot6', width = "100%", height = "700px")
                                   ),
                          tabPanel('Biomass',#
-                                  plotOutput('plot7', width = "100%", height = "700px")
+                                  h3('Relative Biomass'),
+                                  plotOutput('plot7', width = "100%", height = "700px"),
+                                  br(),
+                                  h3('Total Biomass'),
+                                  plotOutput('plot10', width = "100%", height = "700px")
                                   )
                      )
                      ),
@@ -102,9 +106,12 @@ out.Atlantis <- function(result){
             })
             output$plot7 <- renderPlot({
                 df_rel <- convert_relative_initial(result$biomass)
-                plot <- plot_line(df_rel)
+                plot   <- ggplot(df_rel, aes(x = time, y = atoutput))+geom_line()+
+                    facet_wrap(~species) + ylim(0 , 2) + annotate(geom='rect', xmin= 0, ymin= 0.5,
+                                                                  xmax=max(df_rel$time), ymax= 1.5, fill="royalblue", lwd=0 , alpha = .2) +
+                    theme_bw()
                 plot <- update_labels(plot, list(x = "Time [years]", y = expression(Biomass/Biomass[init])))
-                plot_add_box(plot)
+                plot
             })
 
             output$plot8 <- renderPlot({
@@ -117,6 +124,12 @@ out.Atlantis <- function(result){
                     scale_fill_gradient("biomass distribution", limits = c(0, max.b()), low = "royalblue", high = "red",na.value = 'grey80')+
                     ggplot2::facet_wrap(~layer) +
                     theme_light()
+            })
+            output$plot10 <- renderPlot({
+                plot <- ggplot(result$biomass, aes(x = time, y = atoutput)) + geom_line() +
+                    facet_wrap(~species, scale = 'free_y') + theme_bw()
+                plot <- update_labels(plot, list(x = "Time [years]", y = "Biomass [Tons]"))
+                plot
             })
             output$numPoints <- renderText({
                 Ava.mat[which(row.names(Ava.mat) == input$ycol), which(colnames(Ava.mat) == input$xcol)]
