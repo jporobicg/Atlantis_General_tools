@@ -775,18 +775,18 @@ movavg <- function(x, lag){
 ##' @param cover.d Data frame witht the proportion of cover by box
 ##' @return Matrix with number or biomass (N) by Functional group
 ##' @author Demiurgo
-init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
+init.number <- function(data, in.bios, boxes, groups, lfd, cover.d, m.weight){
     ## if the Biomass or number is empty the code will use the distribution assuming that
     ## the proportion by box is given or the proportion of cover.
     area  <- boxes[order(boxes$box_id), ]$area * 1000000 # from k2 to m2
     depth <- -boxes[order(boxes$box_id), ]$botz
     depth[depth < 0] <- NA
     Volumen <- area * depth
-    noBio <- which(is.na(in.bios$BioNumber))
-    idx   <- which(colnames(data) %in% in.bios$FG[noBio])
-    for(i in 1 : length(noBio)){
-        in.bios$BioNumber[noBio[i]] <- sum(data[, idx[i]])
-    }
+    ## noBio <- which(is.na(in.bios$BioNumber))
+    ## idx   <- which(colnames(data) %in% in.bios$FG[noBio])
+    ## for(i in 1 : length(noBio)){
+    ##     in.bios$BioNumber[noBio[i]] <- sum(data[, idx[i]])
+    ## }
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
     ## ~             BIOMASSS POOLS ESTIMATION          ~ ##
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
@@ -816,8 +816,8 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
         prop   <- prp.box[,ord.pool[i]] / sum(prp.box[,ord.pool[i]])
         N[i, ] <- as.numeric(prop * N.pool$N[i])
         if(N.pool$FG[i] %in% c('OCT', 'SQD')){
-            N[i, ] <- N[i, ] / (Volumen * 100)
-        } else {
+            N[i, ] <- N[i, ] / (Volumen)
+        } else if(!(N.pool$FG[i] %in% c('LPH', 'SPH','SZO', 'MZO', 'LZO'))){
             N[i, ] <- N[i, ] / area
         }
         N[i, is.na(N[i, ])] <- 0
@@ -851,11 +851,11 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
     prp.box <- data[, i.numb] / colSums(data[, i.numb])
     ##~ change from Biomass to numbers
 
-    n.numb          <- which(in.bios$FG %in% numb & in.bios$type == 'B')
+    #n.numb          <- which(in.bios$FG %in% numb & in.bios$type == 'B')
     in.bios$fg.Nums <- in.bios$BioNumber
     in.bios$RN      <- in.bios$SN <- NA
     ## numbers
-    in.bios$fg.Nums[n.numb] <-  (in.bios$BioNumber[n.numb] * 1000000) / in.bios$weight[n.numb]
+    #in.bios$fg.Nums[n.numb] <-  (in.bios$BioNumber[n.numb]) / in.bios$weight[n.numb]
     ## Geting the Reserve nitrogenthe weight in gr
     #in.bios$fg.Weight <- with(in.bios, fg.Nums * weight)
     ## Structural weight
@@ -873,7 +873,11 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d){
         l.prop      <- which(colnames(prp.box) %in% in.bios$FG[i])
         ## By cohort
         N.at.Cohort  <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$fg.Nums[i])
-
+        if(in.bios$type[i] == 'B'){ # from Biomass at age to numbers
+            p.w  <- which(m.weight$FG %in% in.bios$FG[i])
+            N.at.Cohort <-  as.numeric(N.at.Cohort / m.weight[p.w, 2 : ncol(m.weight)])
+            N.at.Cohort[is.na(N.at.Cohort)] <- 0
+        }
         #RN.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$RN[i])
         #SN.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$SN[i])
         ## By Area

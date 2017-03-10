@@ -209,13 +209,28 @@ Bio.func <- function(nc.file, groups.csv){
     nc.out <- nc_open(nc.file)
     Is.off <- which(groups.csv$IsTurnedOn == 0)
     FG     <- as.character(groups.csv$Name)
+    TY     <- as.character(groups.csv$GroupType)
     Biom.N <- array(data = NA, dim = c(length(FG), max(groups.csv$NumCohorts)))
     Struct <- Biom.N
     for(code in 1 : length(FG)){
-        sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
-        unit    <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "units")$value
-        if(groups.csv$NumCohorts[code] == 1 && groups.csv$IsTurnedOn[code] == 1){
-            N.tot <- ncvar_get(nc.out, paste(FG[code], "_N", sep = ""))
+        if(TY[code] %in% c('CEP', 'PWN') && groups.csv$NumCohorts[code] > 1){
+            ## This bit is for Aged structured Biomass pools
+            sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N1", sep = ""), attname = "insed")$value
+            unit    <- ncatt_get(nc.out, varid = paste(FG[code], "_N1", sep = ""), attname = "units")$value
+        } else {
+            sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
+            unit    <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "units")$value
+        }
+        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+        ## ~                       Age structured biomass pools and biomass pool                    ~ ##
+        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+        if(groups.csv$NumCohorts[code] == 1 && groups.csv$IsTurnedOn[code] == 1 || TY[code] %in% c('CEP', 'PWN')){
+            for(coh in 1 : groups.csv$NumCohorts[code]){
+                if(TY[code] %in% c('CEP', 'PWN') && groups.csv$NumCohorts[code] > 1){
+                    N.tot <- ncvar_get(nc.out, paste(FG[code], "_N", coh, sep = ""))
+                } else {
+                    N.tot <- ncvar_get(nc.out, paste(FG[code], "_N", sep = ""))
+                }
             if(all(is.na(N.tot)) || all(N.tot == 0) || sum(N.tot, na.rm = TRUE) == 0){
                 ## Getting the total volumen
                 water.t <- ncvar_get(nc.out, 'volume')
@@ -225,8 +240,11 @@ Bio.func <- function(nc.file, groups.csv){
                 w.m2[is.infinite(w.m2)] <- NA
                 w.m2    <- sum(w.m2, na.rm=TRUE)
                 w.m3    <- sum(water.t, na.rm = TRUE)
-                #sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
-                Biom.N[code, 1] <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "_FillValue")$value
+                if(TY[code] %in% c('CEP', 'PWN')){
+                    Biom.N[code, 1] <- ncatt_get(nc.out, varid = paste(FG[code], "_N", coh, sep = ""), attname = "_FillValue")$value
+                } else {
+                    Biom.N[code, 1] <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "_FillValue")$value
+                }
                 Biom.N[code, 1] <- ifelse(sed == 1, Biom.N[code, 1] * w.m2, Biom.N[code, 1] * w.m3)
             } else {
                 if(length(dim(N.tot)) > 3){
@@ -242,9 +260,10 @@ Bio.func <- function(nc.file, groups.csv){
                     w.m2[is.infinite(w.m2)] <- NA
                     N.tot   <- sum(N.tot * w.m2, na.rm = TRUE)
                 }
-                Biom.N[code, 1] <- sum(N.tot, na.rm = TRUE)
+                Biom.N[code, coh] <- sum(N.tot, na.rm = TRUE)
             }
-        } else if(groups.csv$NumCohorts[code] > 1 && groups.csv$IsTurnedOn[code] == 1) {
+            }
+        } else if(groups.csv$NumCohorts[code] > 1 && groups.csv$IsTurnedOn[code] == 1 && !(TY[code] %in% c('CEP', 'PWN'))) {
             for(cohort in 1 : groups.csv$NumCohorts[code]){
                 StructN <- ncvar_get(nc.out, paste(FG[code], as.character(cohort), "_StructN", sep = ""))
                 ReservN <- ncvar_get(nc.out, paste(FG[code], as.character(cohort), "_ResN", sep = ""))
