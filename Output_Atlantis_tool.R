@@ -172,20 +172,21 @@ out.Atlantis <- function(result){
 ##' @param fgs Atlantis Input : Groups file (.csv)
 ##' @param bgm Atlantis Input : BGM file (polygons and layers)
 ##' @param init Atlantis Input : Initial condition file
+##' @param extraFG Extra functional groups that are not readed it by load_bps() function
 ##' @return Preprosessing output, ready to be use by ggplot2
 ##' @author Demiurgo based on Alex work
 pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init, extraFG = NULL){
     cat('\n Defining additional variables')
     bboxes    <- get_boundary(boxinfo = load_box(dir, bgm))
     bps       <- load_bps(dir, fgs, init)
+    if(!is.null(extraFG)) {
+        bps  <- c(bps, extraFG)
+        cat('\n+++++++++++++\n You add the ', extraFG, 'as extra Functional group\n++++++++++++++++')
+    }
     bio_conv  <- get_conv_mgnbiot(dir, prm_biol)
     ## By default data from all groups within the simulation is extracted!
     groups      <- get_groups(dir, fgs)
     groups_age  <- get_age_groups(dir, fgs)
-    if(!is.null(extraFG)) {
-        groups_age  <- c(groups_age, extraFG)
-        cat('\n+++++++++++++\n You add the ', extraFG, 'as extra Functional group\n++++++++++++++++')
-    }
     groups_rest <- groups[!groups %in% groups_age]
     cat('\t\t...Done!')
     cat('\nReading data from Atlantis simulation')
