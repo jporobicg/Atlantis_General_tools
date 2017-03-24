@@ -7,7 +7,7 @@
 ##' @param nc.file Atlantis initial conditions file
 ##' @return Display in the browser the pPREY matriux,  the initial abundace on prey,  the overlap matrix and the predator preference
 ##' @author Demiurgo
-feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file){
+feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     txtHelp <- "<h2>Summary</h2>"
     txtHelp <- paste(txtHelp, "<p>This program displays data for the predator prey relationshi for  <b>Atlantis</b> run. Also,  provide help for the tunning of the pprey matrix</p>")
     txtHelp <- paste(txtHelp, "<h3>Details</h3>")
@@ -31,11 +31,12 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file){
     ## Reading files
     groups.csv <- read.csv(grp.file)
     prm        <- readLines(prm.file, warn = FALSE)
+    numlayers  <- find.z(bgm.file, cum.depths)
     ## availability matrix
     Ava.mat            <- text2num(prm, 'pPREY', Vector=TRUE)
     colnames(Ava.mat)  <- c(as.character(groups.csv$Code), 'DLsed', 'DRsed', 'DCsed')
     ## Biomass,  age and Gape size
-    out.Bio  <- Bio.func(nc.file, groups.csv)
+    out.Bio  <- Bio.func(nc.file, groups.csv, numlayers)
     Struct   <- out.Bio[[1]]
     Biom.N   <- out.Bio[[2]]
     age      <- text2num(prm, '_age_mat', FG = as.character(groups.csv$Code))
@@ -76,8 +77,13 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file){
     t.o.mat <- t(Over.mat * Ava.mat)
     t.o.mat[which(t.o.mat > 0)] <- 1
     ## Plot output
-    real.feed      <- real.feed * Ava.mat
+    real.feed <- real.feed * Ava.mat
+    ## Gape overlap for spatial output
+    ntrans   <- melt(t.o.mat)
+    over.tmp <- do.call(rbind.data.frame, apply(ntrans, 1, sepText))
+    ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ## Spatial Overlap functions and procedures
+    ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     juv.sp.ov <- unlist(apply(age, 1, function(x) paste(rep(x[1], x[2]), 1 : x[2], sep = '_')))
     ad.sp.ov  <- unlist(apply(adu, 1, function(x) paste(rep(x[1], x[2]), 1 : x[2], sep = '_')))
     ad.sp.ov  <- setdiff(ad.sp.ov,  juv.sp.ov)
@@ -87,16 +93,17 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file){
     ## removing groups that are not in the matrix
     ad.sp.ov  <- ad.sp.ov[which(ad.sp.ov %in% colnames(out.Bio[[3]]))]
     ad.sp.ov  <- out.Bio[[3]][ad.sp.ov]
-    ad.sp.ov <- sapply(as.character(groups.csv$Code), function(x) rowSums(ad.sp.ov[, grep(x, names(ad.sp.ov)), drop = FALSE]))
+    ad.sp.ov  <- sapply(as.character(groups.csv$Code), function(x) rowSums(ad.sp.ov[, grep(x, names(ad.sp.ov)), drop = FALSE]))
     ## Binary values
     ad.sp.ov[ad.sp.ov > 1]   <- 1
     juv.sp.ov[juv.sp.ov > 1] <- 1
-    ad.sp.ov  <- data.frame (Stage = 'Adult', ad.sp.ov)
-    juv.sp.ov <- data.frame (Stage = 'Juvenile', juv.sp.ov)
+    land      <- rep(numlayers[, 3], each = length(cum.depths))
+    ad.sp.ov  <- data.frame (Stage = 'Adult', Land = land, ad.sp.ov)
+    juv.sp.ov <- data.frame (Stage = 'Juvenile', Land = land, juv.sp.ov)
     ad.sp.ov  <- cbind(out.Bio[[3]][, 1 : 2], ad.sp.ov)
     juv.sp.ov <- cbind(out.Bio[[3]][, 1 : 2], juv.sp.ov)
-    sp.ov     <- rbind(melt(ad.sp.ov, id = c('Layer', 'Box', 'Stage')),
-                       melt(juv.sp.ov, id = c('Layer', 'Box', 'Stage')))
+    sp.ov     <- rbind(melt(ad.sp.ov, id = c('Layer', 'Box', 'Stage', 'Land')),
+                       melt(juv.sp.ov, id = c('Layer', 'Box', 'Stage', 'Land')))
     ## Geting the map from the bgm file
     map <- make.map(bgm.file)
     ## resolution table
@@ -217,33 +224,41 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file){
                 }
             })
             spatial <- reactive({
+                gp.pred  <- filter(over.tmp, Predator == input$pred, Prey == input$prey)
                 pred.ad  <- filter(sp.ov, variable == input$pred, Stage == 'Adult', Layer == input$layer)
                 pred.juv <- filter(sp.ov, variable == input$pred, Stage == 'Juvenile', Layer == input$layer)
                 prey.ad  <- filter(sp.ov, variable == input$prey, Stage == 'Adult', Layer == input$layer)
                 prey.juv <- filter(sp.ov, variable == input$prey, Stage == 'Juvenile', Layer == input$layer)
                 ## Checking for Juveniles on the biomass pools
-                if(length(prey.juv[, 5]) == 0){
+                ## avoiding inf problems
+                if(length(prey.juv[, 6]) == 0){
                     juv.pry <- NA
                 } else {
-                    juv.pry <- prey.juv[, 5]
+                    juv.pry <- prey.juv[, 6]
                 }
-                if(length(pred.juv[, 5]) == 0){
+                if(length(pred.juv[, 6]) == 0){
                     juv.prd <- NA
                 } else {
-                    juv.prd <- pred.juv[, 5]
+                    juv.prd <- pred.juv[, 6]
                 }
                 ## Merging
-                ad.on.juv    <- data.frame(Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry  * pred.ad[, 5], Stage.prey = 'Juvenile - PREY', Stage.pred = 'Adult - PREDATOR')
-                ad.on.ad     <- data.frame(Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 5] * pred.ad[, 5], Stage.prey = 'Adult - PREY', Stage.pred = 'Adult - PREDATOR')
-                juv.on.juv   <- data.frame(Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry * juv.prd, Stage.prey = 'Juvenile - PREY', Stage.pred = 'Juvenile - PREDATOR')
-                juv.on.ad    <- data.frame(Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 5] * juv.prd, Stage.prey = 'Adult - PREY', Stage.pred = 'Juvenile - PREDATOR')
+                ad.on.juv    <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry  * pred.ad[, 6], Stage.prey = 'Juvenile - PREY', Stage.pred = 'Adult - PREDATOR', Gape.Overlap = gp.pred[2, 5])
+                ad.on.ad     <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 6] * pred.ad[, 6], Stage.prey = 'Adult - PREY', Stage.pred = 'Adult - PREDATOR', Gape.Overlap = gp.pred[4, 5])
+                juv.on.juv   <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry * juv.prd, Stage.prey = 'Juvenile - PREY', Stage.pred = 'Juvenile - PREDATOR', Gape.Overlap = gp.pred[1, 5])
+                juv.on.ad    <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 6] * juv.prd, Stage.prey = 'Adult - PREY', Stage.pred = 'Juvenile - PREDATOR', Gape.Overlap = gp.pred[3, 5])
                 pred.tot     <- rbind(ad.on.juv, ad.on.ad, juv.on.juv, juv.on.ad)
                 pred.tot$Box <- pred.tot$Box - 1
                 pred.tot$overlap[is.na(pred.tot$overlap)] <- 0
+                pred.tot$Rel.overlap <- with(pred.tot, ifelse((Land + 1) == Layer & Gape.Overlap == 1 & overlap == 1, 'Sediment Layer - Gape - Spatial',
+                                                       ifelse((Land + 1) == Layer & overlap == 1 & Gape.Overlap == 0, 'Sediment Layer - Spatial - No Gape',
+                                                       ifelse(Land < Layer, 'Land or Sediment',
+                                                       ifelse(overlap == 0 & Gape.Overlap == 0, 'No Gape - No Spatial',
+                                                       ifelse(overlap == 0 & Gape.Overlap == 1, 'Gape - No Spatial',
+                                                       ifelse(overlap == 1 & Gape.Overlap == 0, 'No Gape - Spatial', 'Gape - Spatial')))))))
                 overlap.pred.prey <- suppressMessages(left_join(map, pred.tot))
             })
             title <- reactive({
-                paste('Spatial overlap between the predator', groups.csv$Long.Name[which(groups.csv$Code %in% input$pred)] ,'and the prey',
+                paste('Realized Spatial overlap between the predator', groups.csv$Long.Name[which(groups.csv$Code %in% input$pred)] ,'and the prey',
                       groups.csv$Long.Name[which(groups.csv$Code %in% input$prey)], sep = ' ')
             })
             output$text1 <- renderText({
@@ -305,9 +320,16 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file){
                     xlab("Functional Groups") + ylab("Biomass [MgN] or Density [MgNm-3]")
             })
             output$plot10 <- renderPlot({
-                ggplot(data = spatial(), aes(x = lon, y = lat, group = Box, fill = as.factor(overlap)))+
-                    geom_polygon(colour = "black", size = 0.25, na.rm = TRUE)  +
-                    scale_fill_manual('Overlap', values = c('slategray1', 'firebrick3')) +
+                ggplot(data = spatial(), aes(x = lon, y = lat, group = Box, fill = Rel.overlap)) +
+                    geom_polygon(colour = "black", size = 0.25, na.rm = TRUE) +
+                    scale_fill_manual('Realized overlap\n', values = c('No Gape - No Spatial'              = 'azure1',
+                                                                       'No Gape - Spatial'                 = 'royalblue',
+                                                                       'Gape - No Spatial'                 = 'mistyrose',
+                                                                       'Gape - Spatial'                     = 'firebrick3',
+                                                                       'Sediment Layer - Gape - Spatial'    = 'ligthgoldenrod',
+                                                                       'Sediment Layer - Spatial - No Gape' = 'darkolivegreen1',
+                                                                       'Land or Sediment'                   = 'darkgoldenrod'
+                                                                       )) +
                     facet_grid(Stage.prey~Stage.pred) +
                     theme(panel.background = element_blank(), axis.line = element_line(colour = "black"),
                           strip.text = element_text(size = 14)) +
@@ -335,7 +357,7 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file){
 ##' @param groups.csv Atlantis groups file
 ##' @return The biomass for age class and the sturctural nitrogen by age class
 ##' @author Demiurgo
-Bio.func <- function(nc.file, groups.csv){
+Bio.func <- function(nc.file, groups.csv, numlayers){
     nc.out <- nc_open(nc.file)
     Is.off <- which(groups.csv$IsTurnedOn == 0)
     FG     <- as.character(groups.csv$Name)
@@ -394,12 +416,24 @@ Bio.func <- function(nc.file, groups.csv){
                     }
                     Biom.N[code, coh] <- sum(N.tot, na.rm = TRUE)
                     if(code==1 && coh==1 && !(code %in% Is.off)){
-                        over.sp        <- melt(Numb)
+                        Numb.tmp <- Numb * NA
+                        for(box in 1 : ncol(Numb)){
+                            if(numlayers[box, 2]  == 1) next()
+                            arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
+                            Numb.tmp[, box] <- Numb[arreg, box]
+                        }
+                        over.sp        <- melt(Numb.tmp)
                         names(over.sp) <- c('Layer', 'Box', paste(FGN[code], coh, sep = '_'))
                     } else if(!(code %in% Is.off)){
-                        new.sp  <- as.vector(melt(Numb)[, 3])
-                        over.sp <- cbind(over.sp, new.sp)
-                        names(over.sp)[ncol(over.sp)] <- paste(FGN[code], coh, sep = '_')
+                         Numb.tmp <- Numb * NA
+                         for(box in 1 : ncol(Numb)){
+                             if(numlayers[box, 2]  == 1) next()
+                             arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
+                             Numb.tmp[, box] <- Numb[arreg, box]
+                         }
+                         new.sp  <- as.vector(melt(Numb.tmp)[, 3])
+                         over.sp <- cbind(over.sp, new.sp)
+                         names(over.sp)[ncol(over.sp)] <- paste(FGN[code], coh, sep = '_')
                     }
                 }
             }
@@ -416,10 +450,25 @@ Bio.func <- function(nc.file, groups.csv){
                     Numb    <- Numb[, , 1]
                 }
                 if(code==1 && cohort==1 && !(code %in% Is.off)){
-                    over.sp        <- melt(Numb)
+                    Numb.tmp <- Numb * NA
+
+                    for(box in 1 : ncol(Numb)){
+                        ## cat('\nbox : ', box, ' - of : ', ncol(Numb))
+                        ## if(box == 12)browser()
+                        if(numlayers[box, 2]  == 1) next()
+                        arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
+                        Numb.tmp[, box] <- Numb[arreg, box]
+                    }
+                    over.sp        <- melt(Numb.tmp)
                     names(over.sp) <- c('Layer', 'Box', paste(FGN[code], cohort, sep = '_'))
                 }else if(!(code %in% Is.off)){
-                    new.sp  <- as.vector(melt(Numb)[, 3])
+                    Numb.tmp <- Numb * NA
+                    for(box in 1 : ncol(Numb)){
+                        if(numlayers[box, 2]  == 1) next()
+                        arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
+                        Numb.tmp[, box] <- Numb[arreg, box]
+                    }
+                    new.sp  <- as.vector(melt(Numb.tmp)[, 3])
                     over.sp <- cbind(over.sp, new.sp)
                     names(over.sp)[ncol(over.sp)] <- paste(FGN[code], cohort, sep = '_')
                 }
@@ -443,7 +492,6 @@ Bio.func <- function(nc.file, groups.csv){
     over.sp[, 3 : ncol(over.sp)] <- mom.t
     return(list(Struct, Biom.N, over.sp))
 }
-
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
@@ -676,4 +724,56 @@ make.map <- function(bgm.file){
                             lat   = latlon$y,
                             lon   = latlon$x)
     return(map)
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title text separatror
+##' @param text a string scalar
+##' @return 3 columns with names and stage of the predator and the prey
+##' @author Demiurgo
+sepText <- function(ortext){
+    ortext      <- as.vector(ortext)
+    text        <- as.character(ortext[2])
+    prey        <- as.character(ortext[1])
+    c.pred      <- unlist(strsplit(text, 'pPREY'))[2]
+    predator    <- gsub(pattern = "[[:digit:]]+", '\\1', c.pred)
+    stage.prey  <- as.numeric(unlist(strsplit(c.pred, predator)))
+    st.pred     <- ifelse(stage.prey[1] != 1 || is.na(stage.prey[1]), "Adult", "Juvenile")
+    st.prey     <- ifelse(stage.prey[2] != 1 || is.na(stage.prey[2]), "Adult", "Juvenile")
+    out         <- data.frame(Predator = predator,    Prey = prey,
+                              Stg.predator = st.pred, Stg.prey = st.prey, Overlap = ortext[3])
+    return(out)
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Num layer  per box
+##' @param bgm.file BGM file for the atlantis model
+##' @param cum.depths Cummulativce depths of the model
+##' @return dataframe with the number of layer per box including the box that are island
+##' @author Demiurgo
+find.z <- function(bgm.file, cum.depths){
+    bgm         <- readLines(bgm.file)
+    numboxes    <- as.numeric(gsub('nbox', '', grep("nbox", bgm, value = TRUE)))
+    box.indices <- vector()
+    for(i in 1 : numboxes){ # box depth
+        box.indices[i] <- grep(paste("box", i - 1, ".botz", sep = ""), bgm)
+    }
+    z.tmp         <- strsplit(bgm[box.indices], "\t")
+    z             <- as.numeric(sapply(z.tmp,`[`,2)) # - depth of water column
+    depth.inf     <- data.frame(depth = z, is.Islan = ifelse(z >= 0, 1, 0))
+    max.numlayers <- length(cum.depths) - 1 # maximum number of water layers
+    ## calculate the number of water layers
+    box.numlayers <- rep(0, numboxes) # vector containing number of water layers
+    i = 2
+    for (i in 1: numboxes) {
+        box.numlayers[i] <- sum(depth.inf$depth[i] < - cum.depths)
+    }
+    max.numlayers    <- length(cum.depths)              ## maximum number of water layers
+    box.numlayers    <- pmin(box.numlayers, max.numlayers) # bound by maximum depth
+    depth.inf$numlay <- box.numlayers
+    return(depth.inf)
 }
