@@ -17,17 +17,27 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     txtHelp <- paste(txtHelp, "<p>The <b>Current value :</b> box,  display the value that the user set in the current run. If the user dont save the run,  the value will be lost.</p>")
     txtHelp <- paste(txtHelp, "<p>On the <b>New value :</b> box,  the user can enter the new value for the pprey matrix for the selected predator and prey. The result of the aplication woudl be reflected on the current run in all the plots after the used click the box <b>Change value</b>.</p>")
     txtHelp <- paste(txtHelp, "<p>The <b>Write pPREY Matrix</b> buttom create a txt file that contain the new pprey matrix created by the user</p>")
-    txtHelp <- paste(txtHelp, "<p><b>Efective predation</b> Represent the total predation based on the biomass of the predator,  is the same approach that Beth used on the spreadsheet to calibrate predation. Values are on logarithmic scale</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Efective predation</b> Represent the total predation based on the Predator\'s biomass,  is the same approach that Beth used on the spreadsheet to calibrate predation. Values are on logarithmic scale</p>")
     txtHelp <- paste(txtHelp, "<p><b>Availability matrix</b> The raw pPREY matrix freom the biological parameter file.</p>")
-    txtHelp <- paste(txtHelp, "<p><b>Overlap matrix</b> shows if the predator is available to eat the prey based on the gape limitations.</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Overlap matrix</b> shows if the predator is able to eat the prey based on the gape limitations.</p>")
     txtHelp <- paste(txtHelp, "<p><b>% of predation pressure</b> Which percentage of each prey corresponds to the total consumed by the predator.</p>")
     txtHelp <- paste(txtHelp, "<p><b>Total biomass prey</b> Total biomass of each functional group on logarithmic scale.</p>")
-    ## I need to create something more elegant for this
-    library(shiny)
-    library(ncdf4)
-    library(reshape)
-    library(tidyverse)
-    library(stringr)
+    ## Libraries
+    if (!require('shiny')) {
+        stop('The package shiny was not installed')
+    }
+    if (!require('ncdf4')) {
+        stop('The package ncdf4 was not installed')
+    }
+    if (!require('reshape')) {
+        stop('The package reshape was not installed')
+    }
+    if (!require('tidyverse')) {
+        stop('The package tidyverse was not installed')
+    }
+    if (!require('stringr')) {
+        stop('The package stringr was not installed')
+    }
     ## Reading files
     groups.csv <- read.csv(grp.file)
     prm        <- readLines(prm.file, warn = FALSE)
@@ -117,8 +127,14 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                                   fluidRow(
                                       column(2,
                                              wellPanel(
-                                                 selectInput('ycol', 'Predator',  row.names(Ava.mat)),
-                                                 selectInput('xcol', 'Prey', colnames(Ava.mat)),
+                                                 ##selectInput('ycol', 'Predator',  row.names(Ava.mat)),
+                                                 ##selectInput('xcol', 'Prey', colnames(Ava.mat)),
+                                                 tags$h3('Predator'),
+                                                 selectInput('ycol', 'Functional Group', as.character(groups.csv$Code[which(groups.csv$IsPredator == 1)])),
+                                                 selectInput('y1col', 'Stage', c('Juvenile', 'Adult', 'Biomass pool')),
+                                                 tags$h3('Prey'),
+                                                 selectInput('xcol', 'Functional Group', colnames(Ava.mat)),
+                                                 selectInput('x1col', 'Stage', c('Juvenile', 'Adult')),
                                                  mainPanel("Original Value: ", verbatimTextOutput("numPoints")),
                                                  mainPanel("Current Value: ", verbatimTextOutput("CurPoints")),
                                                  numericInput("num", label = "New Value", value = 0, min = 0, max = 1, step = 0.00001)
@@ -187,11 +203,22 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
             ## Combine the selected variables into a new data frame
             N.mat     <- reactiveValues()
             N.mat$Ava <- Ava.mat
+            pred.name <- reactive({
+                nprey <- ifelse(input$x1col ==  'Juvenile', 1, 2)
+                npred <- ifelse(input$y1col ==  'Juvenile', 1, ifelse(input$y1col ==  'Adult', 2, 0))
+                if(npred > 0){
+                    paste('pPREY', nprey, input$ycol, npred, sep = '')
+                } else {
+                    paste('pPREY', input$ycol, sep = '')
+                }
+            })
+            ##browser()
             newEntry  <- observe({
                 if(input$do > 0) {
                     newval <- isolate(input$num)
                     col.ch <- isolate(which(colnames(Ava.mat) == input$xcol))
-                    row.ch <- isolate(which(row.names(Ava.mat) == input$ycol))
+                    row.ch <- isolate(which(row.names(Ava.mat) == pred.name()))
+                    ##row.ch <- isolate(which(row.names(Ava.mat) == input$ycol))
                     isolate(N.mat$Ava[row.ch, col.ch] <- newval)
                 }
             })
@@ -202,9 +229,9 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                 which(sort(colnames(Ava.mat)) == input$xcol)
             })
             liney <- reactive({
-                which(sort(row.names(Ava.mat)) == input$ycol)
+                ##                which(sort(row.names(Ava.mat)) == input$ycol)
+                which(sort(row.names(Ava.mat)) == pred.name())
             })
-
             rff <- reactive({
                 t(log(real.feed * N.mat$Ava))
             })
@@ -281,7 +308,7 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                 ggplot(data = melt(t.o.mat),
                        aes(x = X1, y = X2, fill = value)) + geom_tile(aes( fill = factor(value))) +
                     theme(panel.background = element_blank(), axis.text.x = element_text(angle = 90, hjust = 1)) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top") +
-                    scale_fill_grey(start = .9, end = 0) +
+                    scale_fill_grey(start = .9, end = 0, name = 'Gape overlap', labels = c('Yes', 'No')) +
                     annotate("rect", xmin = linex() -.5, xmax = linex() +.5, ymin = 0, ymax = ncol(t.o.mat) + 1,
                              alpha = .1, colour = 'royalblue') +
                     annotate("rect", xmin =  - .5, xmax = nrow(t.o.mat) + .5, ymin = liney() - .5, ymax = liney() + .5,
@@ -337,10 +364,10 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                     coord_cartesian(xlim = ranges$x, ylim = ranges$y)
             })
             output$numPoints <- renderText({
-                Ava.mat[which(row.names(Ava.mat) == input$ycol), which(colnames(Ava.mat) == input$xcol)]
+                Ava.mat[which(row.names(Ava.mat) == pred.name()), which(colnames(Ava.mat) == input$xcol)]
             })
             output$CurPoints <- renderText({
-                N.mat$Ava[which(row.names(Ava.mat) == input$ycol), which(colnames(Ava.mat) == input$xcol)]
+                N.mat$Ava[which(row.names(Ava.mat) == pred.name()), which(colnames(Ava.mat) == input$xcol)]
             })
         }
     )
@@ -451,10 +478,7 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
                 }
                 if(code==1 && cohort==1 && !(code %in% Is.off)){
                     Numb.tmp <- Numb * NA
-
                     for(box in 1 : ncol(Numb)){
-                        ## cat('\nbox : ', box, ' - of : ', ncol(Numb))
-                        ## if(box == 12)browser()
                         if(numlayers[box, 2]  == 1) next()
                         arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
                         Numb.tmp[, box] <- Numb[arreg, box]
@@ -475,7 +499,7 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
                 Biom.N[code, cohort] <- (max(colSums(StructN,  na.rm = TRUE), na.rm = TRUE)  +
                                          max(colSums(ReservN,  na.rm = TRUE), na.rm = TRUE)) *
                     sum(Numb, na.rm = TRUE)
-                Struct[code, cohort] <- (max(colSums(ReservN,  na.rm = TRUE), na.rm = TRUE)) #* sum(Numb, na.rm = TRUE)
+                Struct[code, cohort] <- (max(colSums(ReservN,  na.rm = TRUE), na.rm = TRUE))
             }
         }
     }
@@ -683,14 +707,14 @@ Bio.age <- function(Biom.N, age, Over.mat){
 ##' @author Demiurgo
 saveData <- function(data) {
     fileName <- sprintf("%s_NewpPrey.txt", as.integer(Sys.time()))
-    rows     <-row.names(data)
+    rows     <- row.names(data)
     cols     <- c('##    ', colnames(data))
     nprey    <- ncol(data)
     sink(fileName)
     cat(cols)
     for( i in 1 : length(rows)){
-        cat(paste('\n', rows[i], nprey, sep = '  '))
-        cat('\n', data[i, ])
+        cat(paste('\n', rows[i], '\t', nprey, '\n', sep = ''))
+        cat(data[i, ])
     }
     sink()
 }
@@ -725,7 +749,6 @@ make.map <- function(bgm.file){
                             lon   = latlon$x)
     return(map)
 }
-
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
@@ -746,7 +769,6 @@ sepText <- function(ortext){
                               Stg.predator = st.pred, Stg.prey = st.prey, Overlap = ortext[3])
     return(out)
 }
-
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
