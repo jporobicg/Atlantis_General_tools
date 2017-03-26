@@ -127,8 +127,6 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                                   fluidRow(
                                       column(2,
                                              wellPanel(
-                                                 ##selectInput('ycol', 'Predator',  row.names(Ava.mat)),
-                                                 ##selectInput('xcol', 'Prey', colnames(Ava.mat)),
                                                  tags$h3('Predator'),
                                                  selectInput('ycol', 'Functional Group', as.character(groups.csv$Code[which(groups.csv$IsPredator == 1)])),
                                                  selectInput('y1col', 'Stage', c('Juvenile', 'Adult', 'Biomass pool')),
@@ -452,15 +450,15 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
                         over.sp        <- melt(Numb.tmp)
                         names(over.sp) <- c('Layer', 'Box', paste(FGN[code], coh, sep = '_'))
                     } else if(!(code %in% Is.off)){
-                         Numb.tmp <- Numb * NA
-                         for(box in 1 : ncol(Numb)){
-                             if(numlayers[box, 2]  == 1) next()
-                             arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
-                             Numb.tmp[, box] <- Numb[arreg, box]
-                         }
-                         new.sp  <- as.vector(melt(Numb.tmp)[, 3])
-                         over.sp <- cbind(over.sp, new.sp)
-                         names(over.sp)[ncol(over.sp)] <- paste(FGN[code], coh, sep = '_')
+                        Numb.tmp <- Numb * NA
+                        for(box in 1 : ncol(Numb)){
+                            if(numlayers[box, 2]  == 1) next()
+                            arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
+                            Numb.tmp[, box] <- Numb[arreg, box]
+                        }
+                        new.sp  <- as.vector(melt(Numb.tmp)[, 3])
+                        over.sp <- cbind(over.sp, new.sp)
+                        names(over.sp)[ncol(over.sp)] <- paste(FGN[code], coh, sep = '_')
                     }
                 }
             }
