@@ -23,19 +23,19 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     txtHelp <- paste(txtHelp, "<p><b>% of predation pressure</b> Which percentage of each prey corresponds to the total consumed by the predator.</p>")
     txtHelp <- paste(txtHelp, "<p><b>Total biomass prey</b> Total biomass of each functional group on logarithmic scale.</p>")
     ## Libraries
-    if (!require('shiny')) {
+    if (!require('shiny', quietly = TRUE)) {
         stop('The package shiny was not installed')
     }
-    if (!require('ncdf4')) {
+    if (!require('ncdf4', quietly = TRUE)) {
         stop('The package ncdf4 was not installed')
     }
-    if (!require('reshape')) {
+    if (!require('reshape', quietly = TRUE)) {
         stop('The package reshape was not installed')
     }
-    if (!require('tidyverse')) {
+    if (!require('tidyverse', quietly = TRUE)) {
         stop('The package tidyverse was not installed')
     }
-    if (!require('stringr')) {
+    if (!require('stringr', quietly = TRUE)) {
         stop('The package stringr was not installed')
     }
     ## Reading files
