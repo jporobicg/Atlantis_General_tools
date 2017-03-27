@@ -711,7 +711,7 @@ saveData <- function(data) {
     sink(fileName)
     cat(cols)
     for( i in 1 : length(rows)){
-        cat(paste('\n', rows[i], '\t', nprey, '\n', sep = ''))
+        cat(paste('\n', rows[i], '  ', nprey, '\n', sep = ''))
         cat(data[i, ])
     }
     sink()
