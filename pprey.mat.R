@@ -210,7 +210,6 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                     paste('pPREY', input$ycol, sep = '')
                 }
             })
-            ##browser()
             newEntry  <- observe({
                 if(input$do > 0) {
                     newval <- isolate(input$num)
@@ -266,11 +265,21 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                 } else {
                     juv.prd <- pred.juv[, 6]
                 }
+                ## Checking the gape overlap
+                    AoA <- ifelse(length(filter(gp.pred, Stg.predator == 'Adult', Stg.prey == 'Adult')[, 5]) == 0, 0, as.numeric(as.character(filter(gp.pred, Stg.predator == 'Adult', Stg.prey == 'Adult')[, 5])))
+                    AoJ <- ifelse(length(filter(gp.pred, Stg.predator == 'Adult', Stg.prey == 'Juvenile')[, 5]) == 0, 0, as.numeric(as.character(filter(gp.pred, Stg.predator == 'Adult', Stg.prey == 'Juvenile')[, 5])))
+                    JoA <- ifelse(length(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Adult')[, 5]) == 0, 0, as.numeric(as.character(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Adult')[, 5])))
+                    JoJ <- ifelse(length(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Juvenile')[, 5]) == 0, 0, as.numeric(as.character(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Juvenile')[, 5])))
+
                 ## Merging
-                ad.on.juv    <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry  * pred.ad[, 6], Stage.prey = 'Juvenile - PREY', Stage.pred = 'Adult - PREDATOR', Gape.Overlap = gp.pred[2, 5])
-                ad.on.ad     <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 6] * pred.ad[, 6], Stage.prey = 'Adult - PREY', Stage.pred = 'Adult - PREDATOR', Gape.Overlap = gp.pred[4, 5])
-                juv.on.juv   <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry * juv.prd, Stage.prey = 'Juvenile - PREY', Stage.pred = 'Juvenile - PREDATOR', Gape.Overlap = gp.pred[1, 5])
-                juv.on.ad    <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 6] * juv.prd, Stage.prey = 'Adult - PREY', Stage.pred = 'Juvenile - PREDATOR', Gape.Overlap = gp.pred[3, 5])
+                ad.on.juv    <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry  * pred.ad[, 6], Stage.prey = 'Juvenile - PREY',
+                                           Stage.pred = 'Adult - PREDATOR', Gape.Overlap = AoJ)
+                ad.on.ad     <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 6] * pred.ad[, 6], Stage.prey = 'Adult - PREY',
+                                           Stage.pred = 'Adult - PREDATOR', Gape.Overlap = AoA)
+                juv.on.juv   <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry * juv.prd, Stage.prey = 'Juvenile - PREY',
+                                           Stage.pred = 'Juvenile - PREDATOR', Gape.Overlap = JoJ)
+                juv.on.ad    <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = prey.ad[, 6] * juv.prd, Stage.prey = 'Adult - PREY',
+                                           Stage.pred = 'Juvenile - PREDATOR', Gape.Overlap = JoA)
                 pred.tot     <- rbind(ad.on.juv, ad.on.ad, juv.on.juv, juv.on.ad)
                 pred.tot$Box <- pred.tot$Box - 1
                 pred.tot$overlap[is.na(pred.tot$overlap)] <- 0
@@ -431,30 +440,39 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
                     } else if(unit == "mg N m-3"){
                         water.t <- ncvar_get(nc.out, 'volume')
                         N.tot   <- N.tot * water.t
+                        Temp.N  <- N.tot
                     } else if (unit == 'mg N m-2'){
                         water.t <- ncvar_get(nc.out, 'volume')
                         w.depth <- ncvar_get(nc.out, 'nominal_dz')
                         w.depth[is.na(w.depth)] <- 0
                         w.m2    <- colSums(water.t,na.rm=TRUE) / apply(w.depth, 2, function(x) max(x, na.rm = TRUE))
                         w.m2[is.infinite(w.m2)] <- NA
+                        Temp.N  <- N.tot
                         N.tot   <- sum(N.tot * w.m2, na.rm = TRUE)
                     }
                     Biom.N[code, coh] <- sum(N.tot, na.rm = TRUE)
+                    Numb.tmp <- matrix(NA, max(numlayers[, 3]), nrow(numlayers))
                     if(code==1 && coh==1 && !(code %in% Is.off)){
-                        Numb.tmp <- Numb * NA
-                        for(box in 1 : ncol(Numb)){
-                            if(numlayers[box, 2]  == 1) next()
-                            arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
-                            Numb.tmp[, box] <- Numb[arreg, box]
+                        if(length(dim(Temp.N)) == 1){
+                            Numb.tmp[nrow(Numb.tmp), ] <- Temp.N
+                        } else {
+                            for(box in 1 : ncol(Temp.N)){
+                                if(numlayers[box, 2]  == 1) next()
+                                arreg           <- c(numlayers[box, 3] : 1, nrow(Numb.tmp), (numlayers[box, 3]  +  1) :(nrow(Numb.tmp) - 1))[1 : nrow(Numb.tmp)]
+                                Numb.tmp[, box] <- Temp.N[arreg, box]
+                            }
                         }
                         over.sp        <- melt(Numb.tmp)
                         names(over.sp) <- c('Layer', 'Box', paste(FGN[code], coh, sep = '_'))
                     } else if(!(code %in% Is.off)){
-                        Numb.tmp <- Numb * NA
-                        for(box in 1 : ncol(Numb)){
-                            if(numlayers[box, 2]  == 1) next()
-                            arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
-                            Numb.tmp[, box] <- Numb[arreg, box]
+                        if(length(dim(Temp.N)) == 1){
+                            Numb.tmp[nrow(Numb.tmp), ] <- Temp.N
+                        } else {
+                            for(box in 1 : ncol(Temp.N)){
+                                if(numlayers[box, 2]  == 1) next()
+                                arreg           <- c(numlayers[box, 3] : 1, nrow(Numb.tmp), (numlayers[box, 3]  +  1) :(nrow(Numb.tmp) - 1))[1 : nrow(Numb.tmp)]
+                                Numb.tmp[, box] <- Temp.N[arreg, box]
+                            }
                         }
                         new.sp  <- as.vector(melt(Numb.tmp)[, 3])
                         over.sp <- cbind(over.sp, new.sp)
@@ -741,7 +759,7 @@ make.map <- function(bgm.file){
         }
     }
     ## Convert latlon coordinates!
-    latlon    <- proj4::project(map.vertices[, 2:3], proj = proj, inverse = T)
+    latlon    <- proj4::project(map.vertices[, 2 : 3], proj = proj, inverse = T)
     map       <- data.frame(Box = map.vertices[, 1],
                             lat   = latlon$y,
                             lon   = latlon$x)
@@ -788,7 +806,6 @@ find.z <- function(bgm.file, cum.depths){
     max.numlayers <- length(cum.depths) - 1 # maximum number of water layers
     ## calculate the number of water layers
     box.numlayers <- rep(0, numboxes) # vector containing number of water layers
-    i = 2
     for (i in 1: numboxes) {
         box.numlayers[i] <- sum(depth.inf$depth[i] < - cum.depths)
     }
