@@ -42,6 +42,9 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     groups.csv <- read.csv(grp.file)
     prm        <- readLines(prm.file, warn = FALSE)
     numlayers  <- find.z(bgm.file, cum.depths)
+    min.depth  <- text2num(prm, 'mindepth', FG = 'look')
+    max.depth  <- text2num(prm, 'maxdepth', FG = 'look')
+    depth.dst  <- data.frame(FG = min.depth[, 1], Min = min.depth[, 2], Max = max.depth[which(max.depth[, 1] %in% min.depth[,1]), 2])
     ## availability matrix
     Ava.mat            <- text2num(prm, 'pPREY', Vector=TRUE)
     colnames(Ava.mat)  <- c(as.character(groups.csv$Code), 'DLsed', 'DRsed', 'DCsed')
@@ -114,6 +117,7 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     juv.sp.ov <- cbind(out.Bio[[3]][, 1 : 2], juv.sp.ov)
     sp.ov     <- rbind(melt(ad.sp.ov, id = c('Layer', 'Box', 'Stage', 'Land')),
                        melt(juv.sp.ov, id = c('Layer', 'Box', 'Stage', 'Land')))
+    sediment  <- max(sp.ov$Layer, na.rm = TRUE)
     ## Geting the map from the bgm file
     map <- make.map(bgm.file)
     ## resolution table
@@ -175,7 +179,10 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                                              wellPanel(
                                                  selectInput('pred', 'Predator',  groups.csv$Code),
                                                  selectInput('prey', 'Prey', groups.csv$Code),
-                                                 sliderInput("layer", "Layer:", min = 1,  max = max(sp.ov$Layer, na.rm = TRUE), value = 1, step = 1)
+                                                 selectInput("layer", "Layer:", c(1 : (sediment - 1), 'Sediment')),
+                                                 br(),
+                                                 br(),
+                                                 plotOutput('plot11', height = "300px")
                                              )
                                              ),
                                       column(10,
@@ -249,10 +256,11 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
             })
             spatial <- reactive({
                 gp.pred  <- filter(over.tmp, Predator == input$pred, Prey == input$prey)
-                pred.ad  <- filter(sp.ov, variable == input$pred, Stage == 'Adult', Layer == input$layer)
-                pred.juv <- filter(sp.ov, variable == input$pred, Stage == 'Juvenile', Layer == input$layer)
-                prey.ad  <- filter(sp.ov, variable == input$prey, Stage == 'Adult', Layer == input$layer)
-                prey.juv <- filter(sp.ov, variable == input$prey, Stage == 'Juvenile', Layer == input$layer)
+                input.layer <- as.character(ifelse(input$layer == 'Sediment', max(sp.ov$Layer, na.rm = TRUE), input$layer))
+                pred.ad  <- filter(sp.ov, variable == input$pred, Stage == 'Adult', Layer == input.layer)
+                pred.juv <- filter(sp.ov, variable == input$pred, Stage == 'Juvenile', Layer == input.layer)
+                prey.ad  <- filter(sp.ov, variable == input$prey, Stage == 'Adult', Layer == input.layer)
+                prey.juv <- filter(sp.ov, variable == input$prey, Stage == 'Juvenile', Layer == input.layer)
                 ## Checking for Juveniles on the biomass pools
                 ## avoiding inf problems
                 if(length(prey.juv[, 6]) == 0){
@@ -283,13 +291,16 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                 pred.tot     <- rbind(ad.on.juv, ad.on.ad, juv.on.juv, juv.on.ad)
                 pred.tot$Box <- pred.tot$Box - 1
                 pred.tot$overlap[is.na(pred.tot$overlap)] <- 0
-                pred.tot$Rel.overlap <- with(pred.tot, ifelse((Land + 1) == Layer & Gape.Overlap == 1 & overlap == 1, 'Sediment Layer - Gape - Spatial',
-                                                       ifelse((Land + 1) == Layer & overlap == 1 & Gape.Overlap == 0, 'Sediment Layer - Spatial - No Gape',
+                pred.tot$Rel.overlap <- with(pred.tot, ifelse(sediment == Layer & Gape.Overlap == 1 & overlap == 1, 'Sediment Layer - Gape - Spatial',
+                                                       ifelse(sediment == Layer & overlap == 1 & Gape.Overlap == 0, 'Sediment Layer - Spatial - No Gape',
                                                        ifelse(Land < Layer, 'Land or Sediment',
                                                        ifelse(overlap == 0 & Gape.Overlap == 0, 'No Gape - No Spatial',
                                                        ifelse(overlap == 0 & Gape.Overlap == 1, 'Gape - No Spatial',
                                                        ifelse(overlap == 1 & Gape.Overlap == 0, 'No Gape - Spatial', 'Gape - Spatial')))))))
                 overlap.pred.prey <- suppressMessages(left_join(map, pred.tot))
+            })
+            dpt <- reactive({
+                dpt <- rbind(filter(depth.dst, FG == input$pred), filter(depth.dst, FG == input$prey))
             })
             title <- reactive({
                 paste('Realized Spatial overlap between the predator', groups.csv$Long.Name[which(groups.csv$Code %in% input$pred)] ,'and the prey',
@@ -360,15 +371,21 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                                                                        'No Gape - Spatial'                 = 'royalblue',
                                                                        'Gape - No Spatial'                 = 'mistyrose',
                                                                        'Gape - Spatial'                     = 'firebrick3',
-                                                                       'Sediment Layer - Gape - Spatial'    = 'ligthgoldenrod',
+                                                                       'Sediment Layer - Gape - Spatial'    = 'goldenrod2',
                                                                        'Sediment Layer - Spatial - No Gape' = 'darkolivegreen1',
-                                                                       'Land or Sediment'                   = 'darkgoldenrod'
+                                                                       'Land or Sediment'                   = 'grey50'
                                                                        )) +
                     facet_grid(Stage.prey~Stage.pred) +
                     theme(panel.background = element_blank(), axis.line = element_line(colour = "black"),
                           strip.text = element_text(size = 14)) +
                     labs(x = 'Longitude', y = 'Latitude') +
                     coord_cartesian(xlim = ranges$x, ylim = ranges$y)
+            })
+            output$plot11 <- renderPlot({
+                plot(c(1,1), -dpt()[1,2:3], xaxt = 'n', bty = 'n', ylab = 'Depth (m)', xlab = 'Functional group', type = 'l', las = 1,
+                     ylim = -c(max(dpt()$Max),min(dpt()$Min)), xlim = c(0.5, 2.5), lwd = 15, col = 'royalblue',main='Depth Distribution')
+                lines(c(2,2), -dpt()[2,2:3], col='goldenrod', lwd = 15)
+                axis(side = 1, at= c(1,2), labels=as.character(dpt()[1:2,1]))
             })
             output$numPoints <- renderText({
                 Ava.mat[which(row.names(Ava.mat) == pred.name()), which(colnames(Ava.mat) == input$xcol)]
@@ -550,8 +567,12 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
         for( i in 1 : length(txt)){
             tmp     <- unlist(strsplit(txt[i], split = '|', fixed = TRUE))
             tmp2    <- unlist(strsplit(tmp[1], split = '_'))
-            id.co   <- which(tmp2 %in% FG )
-            col1[i] <- tmp2[id.co]
+            if(FG[1] == 'look') {
+                col1[i] <- tmp2[1]
+            } else {
+                id.co   <- which(tmp2 %in% FG )
+                col1[i] <- tmp2[id.co]
+            }
             col2[i] <- as.numeric(tmp[2])
         }
         if(is.null(FG)) col1 <- rep('FG', length(col2))

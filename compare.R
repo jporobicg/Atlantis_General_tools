@@ -21,7 +21,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     if(is.null(folder2)){
         if(file.exists(biomass.old.file)){
             old.dat <- read.csv(biomass.old.file, sep = ' ')
-        } else if (file.exist(paste(folder1, biomass.old.file, sep = "/"))){
+        } else if (file.exists(paste(folder1, biomass.old.file, sep = "/"))){
             old.dat <- read.csv(paste(folder1, biomass.old.file, sep = "/"))
         } else {
             stop('You need to provide a path to the old file')
@@ -116,7 +116,6 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
             prey <- reactive({
                 out.diet <- filter(new.diet, variable ==  input$FG, value > 0.0001)
             })
-
             output$plot1 <- renderPlot({
                 plot <- ggplot(dat.tot, aes(x = Time, y = value, colour = Simulation)) +
                     geom_line() + facet_wrap(~ variable, ncol = 4,  scale = 'free_y') + theme_bw()+
@@ -137,8 +136,8 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                     df <- data.frame()
                     ggplot(df) + geom_bar() + labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
                 } else {
-                ggplot(pred.cohort(), aes(x = Cohort, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Dark2") +
-                    labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
+                    ggplot(pred.cohort(), aes(x = Cohort, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Dark2") +
+                        labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
                 }
             })
         }
