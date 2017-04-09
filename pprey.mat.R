@@ -5,9 +5,12 @@
 ##' @param prm.file Atlantis parameter file
 ##' @param grp.file Atlantis group file
 ##' @param nc.file Atlantis initial conditions file
+##' @param bgm.file Bgm used for the Atlantis model
+##' @param cum.depths Cumulative depths of the differente layers
+##' @param quiet For debugging porpouses,  default TRUE
 ##' @return Display in the browser the pPREY matriux,  the initial abundace on prey,  the overlap matrix and the predator preference
 ##' @author Demiurgo
-feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
+feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths, quiet = TRUE){
     txtHelp <- "<h2>Summary</h2>"
     txtHelp <- paste(txtHelp, "<p>This program displays data for the predator prey relationshi for  <b>Atlantis</b> run. Also,  provide help for the tunning of the pprey matrix</p>")
     txtHelp <- paste(txtHelp, "<h3>Details</h3>")
@@ -23,6 +26,10 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     txtHelp <- paste(txtHelp, "<p><b>% of predation pressure</b> Which percentage of each prey corresponds to the total consumed by the predator.</p>")
     txtHelp <- paste(txtHelp, "<p><b>Total biomass prey</b> Total biomass of each functional group on logarithmic scale.</p>")
     ## Libraries
+    if(!quiet) cat('\n\n # -  -  -  -  -  -  - #')
+    if(!quiet) cat('\n # -     Step 1    -   #')
+    if(!quiet) cat('\n # -  -  -  -  -  -  - #')
+    if(!quiet) cat('\n\n Loading libraries')
     if (!require('shiny', quietly = TRUE)) {
         stop('The package shiny was not installed')
     }
@@ -38,7 +45,9 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     if (!require('stringr', quietly = TRUE)) {
         stop('The package stringr was not installed')
     }
+    if(!quiet) cat('      ...Done!')
     ## Reading files
+    if(!quiet) cat('\n Reading files')
     groups.csv <- read.csv(grp.file)
     prm        <- readLines(prm.file, warn = FALSE)
     numlayers  <- find.z(bgm.file, cum.depths)
@@ -48,10 +57,17 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     ## availability matrix
     Ava.mat            <- text2num(prm, 'pPREY', Vector=TRUE)
     colnames(Ava.mat)  <- c(as.character(groups.csv$Code), 'DLsed', 'DRsed', 'DCsed')
+    if(!quiet) cat('          ...Done!')
     ## Biomass,  age and Gape size
+    if(!quiet) cat('\n\n # -  -  -  -  -  -  - #')
+    if(!quiet) cat('\n # -     Step 2    -   #')
+    if(!quiet) cat('\n # -  -  -  -  -  -  - #')
+    if(!quiet) cat('\n\n Calculating Biomass and spatial distribution')
     out.Bio  <- Bio.func(nc.file, groups.csv, numlayers)
     Struct   <- out.Bio[[1]]
     Biom.N   <- out.Bio[[2]]
+    if(!quiet) cat('       ...Done!')
+    if(!quiet) cat('\n Calculating gape limitation and prey size')
     age      <- text2num(prm, '_age_mat', FG = as.character(groups.csv$Code))
     is.off   <- which(groups.csv$IsTurnedOn == 0)
     if(length(is.off) > 0){ ## removing the groups that are turned off
@@ -59,6 +75,8 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     }
     adu      <- data.frame(FG = groups.csv$Code, Adul = groups.csv$NumCohorts)
     Gape     <- gape.func(groups.csv, Struct, Biom.N, prm)
+    if(!quiet) cat('          ...Done!')
+    if(!quiet) cat('\n Calculating size and spatial overlap')
     Over.mat <- Over.mat.func(Ava.mat, Gape[[1]])
     bio.a    <- Bio.age(Biom.N, age = Gape[[2]], Over.mat)
     bio.juv  <- bio.a[[1]]
@@ -67,6 +85,8 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     bio.adl  <- data.frame(FG = bio.a[[2]][, 1], Biomass = as.numeric(bio.a[[2]][, 2]))
     b.juv    <- bio.juv[complete.cases(bio.juv), ]
     b.adl    <- bio.adl[complete.cases(bio.adl), ]
+    if(!quiet) cat('               ...Done!')
+    if(!quiet) cat('\n Calculating feeding pressure')
     ## Total feeding
     real.feed  <- Over.mat * NA
     pred       <- row.names(Over.mat)
@@ -86,6 +106,7 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
             real.feed[pd, ] <- (Over.mat[pd, ] * as.numeric(bio.adl[, 2]))
         }
     }
+    if(!quiet) cat('                       ...Done!')
     ## Real Overlap matrix Including pPREY and Overlap matrix
     t.o.mat <- t(Over.mat * Ava.mat)
     t.o.mat[which(t.o.mat > 0)] <- 1
@@ -97,6 +118,7 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ## Spatial Overlap functions and procedures
     ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if(!quiet) cat('\n Reading an preparing the spatial data for plotting')
     juv.sp.ov <- unlist(apply(age, 1, function(x) paste(rep(x[1], x[2]), 1 : x[2], sep = '_')))
     ad.sp.ov  <- unlist(apply(adu, 1, function(x) paste(rep(x[1], x[2]), 1 : x[2], sep = '_')))
     ad.sp.ov  <- setdiff(ad.sp.ov,  juv.sp.ov)
@@ -124,6 +146,11 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
     plotHeigh <- paste(as.character(40 * (ncol(t.o.mat) %/% 3 + 1)), "px", sep = "")
     plotWidth <- paste(as.character(45 * (nrow(t.o.mat) %/% 3 + 1)), "px", sep = "")
     ##real.vec.pprey <- melt(t(log(real.feed)))
+    if(!quiet) cat(' ...Done!')
+    if(!quiet) cat('\n\n # -  -  -  -  -  -  - #')
+    if(!quiet) cat('\n # -     Step 3    -   #')
+    if(!quiet) cat('\n # -  -  -  -  -  -  - #')
+    if(!quiet) cat('\n\n Plotting \n\n')
     ## Shiny Application
     shinyApp(
         ui <- navbarPage('Atlantis Diet Tool',
@@ -278,7 +305,6 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths){
                     AoJ <- ifelse(length(filter(gp.pred, Stg.predator == 'Adult', Stg.prey == 'Juvenile')[, 5]) == 0, 0, as.numeric(as.character(filter(gp.pred, Stg.predator == 'Adult', Stg.prey == 'Juvenile')[, 5])))
                     JoA <- ifelse(length(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Adult')[, 5]) == 0, 0, as.numeric(as.character(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Adult')[, 5])))
                     JoJ <- ifelse(length(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Juvenile')[, 5]) == 0, 0, as.numeric(as.character(filter(gp.pred, Stg.predator == 'Juvenile', Stg.prey == 'Juvenile')[, 5])))
-
                 ## Merging
                 ad.on.juv    <- data.frame(Land = prey.ad[, 4], Layer = prey.ad[, 1], Box = prey.ad[, 2], overlap = juv.pry  * pred.ad[, 6], Stage.prey = 'Juvenile - PREY',
                                            Stage.pred = 'Adult - PREDATOR', Gape.Overlap = AoJ)
@@ -422,9 +448,11 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
             ## This bit is for Aged structured Biomass pools
             sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N1", sep = ""), attname = "insed")$value
             unit    <- ncatt_get(nc.out, varid = paste(FG[code], "_N1", sep = ""), attname = "units")$value
+            epi     <- ncatt_get(nc.out, varid = paste(FG[code], "_N1", sep = ""), attname = "epibenthos")$value == 'epibenthos'
         } else {
             sed     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "insed")$value
             unit    <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "units")$value
+            epi     <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "bmtype")$value == 'epibenthos'
         }
         ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
         ## ~                       Age structured biomass pools and biomass pool                    ~ ##
@@ -450,7 +478,7 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
                     } else {
                         Biom.N[code, 1] <- ncatt_get(nc.out, varid = paste(FG[code], "_N", sep = ""), attname = "_FillValue")$value
                     }
-                    Biom.N[code, 1] <- ifelse(sed == 1, Biom.N[code, 1] * w.m2, Biom.N[code, 1] * w.m3)
+                    Biom.N[code, 1] <- ifelse(sed == 1 || epi, Biom.N[code, 1] * w.m2, Biom.N[code, 1] * w.m3)
                 } else {
                     if(length(dim(N.tot)) > 3){
                         N.tot <- N.tot[, , 1]
@@ -510,19 +538,19 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
                     Numb    <- Numb[, , 1]
                 }
                 if(code==1 && cohort==1 && !(code %in% Is.off)){
-                    Numb.tmp <- Numb * NA
-                    for(box in 1 : ncol(Numb)){
+                    Numb.tmp <- matrix(NA, max(numlayers[, 3]), nrow(numlayers))
+                    for(box in 1 : ncol(Numb.tmp)){
                         if(numlayers[box, 2]  == 1) next()
-                        arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
+                        arreg <- c(numlayers[box, 3] : 1, max(numlayers[, 3]), (numlayers[box, 3]  +  1) : (max(numlayers[, 3]) - 1))[1 : max(numlayers[, 3])]
                         Numb.tmp[, box] <- Numb[arreg, box]
                     }
                     over.sp        <- melt(Numb.tmp)
                     names(over.sp) <- c('Layer', 'Box', paste(FGN[code], cohort, sep = '_'))
                 }else if(!(code %in% Is.off)){
-                    Numb.tmp <- Numb * NA
+                    Numb.tmp <- matrix(NA, max(numlayers[, 3]), nrow(numlayers))
                     for(box in 1 : ncol(Numb)){
                         if(numlayers[box, 2]  == 1) next()
-                        arreg <- c(numlayers[box, 3] : 1, nrow(Numb), (numlayers[box, 3]  +  1) :(nrow(Numb) - 1))[1 : nrow(Numb)]
+                        arreg <- c(numlayers[box, 3] : 1, max(numlayers[, 3]), (numlayers[box, 3]  +  1) :(max(numlayers[, 3]) - 1))[1 : max(numlayers[, 3])]
                         Numb.tmp[, box] <- Numb[arreg, box]
                     }
                     new.sp  <- as.vector(melt(Numb.tmp)[, 3])
@@ -584,7 +612,7 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
         pos   <- 1
         for( i in 1 : length(nam)){
             tmp     <- unlist(strsplit(nam[i], split = '|', fixed = TRUE))
-            if(tmp[1] %in% c('#','##', '###')) next
+            if(tmp[1] %in% c('#','##', '###')) next  ## check this part!!
             fg[pos] <- tmp[1]
             if(pos == 1) {
                 pp.mat <- matrix(as.numeric(unlist(strsplit(text[l.pat[i] + 1], split = ' ', fixed = TRUE))), nrow = 1)

@@ -22,13 +22,16 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
         if(file.exists(biomass.old.file)){
             old.dat <- read.csv(biomass.old.file, sep = ' ')
         } else if (file.exists(paste(folder1, biomass.old.file, sep = "/"))){
-            old.dat <- read.csv(paste(folder1, biomass.old.file, sep = "/"))
+            old.dat <- read.csv(paste(folder1, biomass.old.file, sep = "/"), sep = ' ')
         } else {
             stop('You need to provide a path to the old file')
         }
+    } else {
+        old.dat <- read.csv(paste(folder2, biomass.old.file, sep = "/"), sep = ' ')
     }
     cur.dat <- read.csv(paste(folder1, biomass.curr.file, sep = "/"),sep = ' ')
-    grp     <- read.csv(groups.csv)$Code
+    grp     <- read.csv(groups.csv)
+    grp     <- grp[grp$IsTurnedOn == 1, ]$Code
     sub.old <- cbind(old.dat[c('Time', as.character(grp))], Simulation = 'previous')
     sub.cur <- cbind(cur.dat[c('Time', as.character(grp))], Simulation = 'current')
     if(!all(sub.old$Time ==  sub.cur$Time)) stop('The time steps of the total time of the simulations are different')
@@ -43,9 +46,20 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     dat.tot           <- melt(dat.tot, id = c('Time', 'Simulation'))
     ## Diet Analysis
     diet.file <- read.csv(diet.file, sep=' ')
-    new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock"))
-    time      <- unique(diet.file$Time)
-    stocks    <- unique(diet.file$Stock)
+    hab.chk <- FALSE
+    if(any('Habitat' == colnames(diet.file))) hab.chk <- TRUE
+    if(hab.chk){
+        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+        ## ~           CHECHK THIS PART!!!!       ~ ##
+        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
+        new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Habitat"))
+        time      <- unique(diet.file$Time)
+        stocks    <- unique(diet.file$Habitat)
+    } else {
+        new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock"))
+        time      <- unique(diet.file$Time)
+        stocks    <- unique(diet.file$Stock)
+    }
     shinyApp(
         ui <- navbarPage("Compare outputs",
                          tabPanel('Biomass comparison',
@@ -56,7 +70,11 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                       column(2,
                                              wellPanel(
                                                  selectInput('FG', 'Functional Group :', as.character(grp)),
-                                                 selectInput('Stocks', 'Stocks :', stocks),
+                                                 if(hab.chk){
+                                                     selectInput('Stocks', 'Habitat :', stocks)
+                                                 } else {
+                                                     selectInput('Stocks', 'Stocks :', stocks)
+                                                 },
                                                  numericInput("Thr", "Threshold :", min = 1e-16,  max = 1, value = 1e-4, step = 0.001)
                                                  )
                                              ),
@@ -71,21 +89,24 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                       column(2,
                                              wellPanel(
                                                  selectInput('FG2', 'Functional Group :', as.character(grp)),
-                                                 selectInput('Stocks2', 'Stocks :', stocks),
+                                                 if(!hab.chk) selectInput('Stocks2', 'Stocks :', stocks),
                                                  sliderInput("Time", "Simulation Time :", min = min(time),  max = max(time), value = min(time), step = diff(time)[1]),
                                                  numericInput("Thr2", "Threshold :", min = 1e-16,  max = 1, value = 1e-4, step = 0.001)
                                              )
                                              ),
                                       column(10,
                                              plotOutput('plot4', width = "100%", height = "600px")
-                                             #plotOutput('plot3', width = "100%", height = "400px")
                                              )
                                   )
                                   )
                          ),
         function(input, output, session) {
             pred.cohort <- reactive({
-                pred.pos      <- which(diet.file$Time == input$Time & diet.file$Predator == input$FG2 & diet.file$Stock == as.numeric(input$Stocks2))
+                if(hab.chk){
+                    pred.pos      <- which(diet.file$Time == input$Time & diet.file$Predator == input$FG2)
+                } else {
+                    pred.pos      <- which(diet.file$Time == input$Time & diet.file$Predator == input$FG2 & diet.file$Stock == as.numeric(input$Stocks2))
+                }
                 pred.dat.filt <- diet.file[pred.pos, ]
                 ## removing pry that is less than 1% of the total diet
                 rm.vec        <- 1
@@ -96,11 +117,20 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                     rm.vec        <- rm.vec[-1]
                     pred.dat.filt <- pred.dat.filt[, - rm.vec]
                 }
-                plt           <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Cohort', 'Stock'))
+                if(hab.chk){
+                    plt           <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Habitat'))
+                } else {
+                    plt           <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Cohort', 'Stock'))
+                }
+
             })
 
             predator <- reactive({
-                pred.pos      <- which(diet.file$Predator == input$FG & diet.file$Stock == as.numeric(input$Stocks))
+                if(hab.chk){
+                    pred.pos      <- which(diet.file$Predator == input$FG & diet.file$Habitat == input$Stocks)
+                } else {
+                    pred.pos      <- which(diet.file$Predator == input$FG & diet.file$Stock == as.numeric(input$Stocks))
+                }
                 pred.dat.filt <- diet.file[pred.pos, ]
                 ## removing pry that is less than 1% of the total diet
                 rm.vec        <- 1
@@ -111,7 +141,11 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                     rm.vec        <- rm.vec[-1]
                     pred.dat.filt <- pred.dat.filt[, - rm.vec]
                 }
-                plt  <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Cohort', 'Stock'))
+                if(hab.chk){
+                    plt  <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Habitat'))
+                } else {
+                    plt  <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Cohort', 'Stock'))
+                }
             })
             prey <- reactive({
                 out.diet <- filter(new.diet, variable ==  input$FG, value > 0.0001)
@@ -135,7 +169,10 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                 if(ncol(pred.cohort()) == 4){
                     df <- data.frame()
                     ggplot(df) + geom_bar() + labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
-                } else {
+                } else if(hab.chk){
+                    ggplot(pred.cohort(), aes(x = Habitat, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Dark2") +
+                        labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Habitat', y = 'Proportion'))
+                } else{
                     ggplot(pred.cohort(), aes(x = Cohort, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Dark2") +
                         labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
                 }
