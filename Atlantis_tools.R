@@ -117,7 +117,6 @@ points.img <- function(x.lim = NA, y.lim = NA, filename = NULL, grid = FALSE, co
     ## Y.vals  = minimum and maximum values of Y          #
     ## filename  =  Name of the image file                #
     #######################################################
-
     library(pixmap)
     ## convertion on linux
     system(paste('convert', filename, 'temporal.ppm', sep = ' '))
@@ -355,7 +354,7 @@ plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, le
     lat <- as.matrix(poly$coor[, c(seq(from = 2, to = dim(poly$coor)[2], by = 2))])
     ## Color
     if (leg.color == 'normal') {
-        color <- 'gray90'
+        color <- rgb(t(col2rgb("royalblue")), alpha = 30, maxColorValue = 255)
         etiq  <- NULL
     } else if (any(leg.color == names(poly$attrib)) && leg.color != 'box_id'){
         var   <- unlist(poly$attrib[leg.color])

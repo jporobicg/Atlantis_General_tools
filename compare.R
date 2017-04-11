@@ -1,3 +1,15 @@
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param folder1 Folder that contain the current Atlantis outputs
+##' @param folder2 Folder that contain the old Atlantis outputs files. If empty the folder1 would be use
+##' @param biomass.old.file Old output file
+##' @param biomass.curr.file Current file
+##' @param groups.csv group csv file
+##' @param diet.file output file for the diet (atlantis output)
+##' @return A shiny output (reactive html)
+##' @author Demiurgo
 output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.file, groups.csv, diet.file ){
     ## Libraries
     if (!require('shiny', quietly = TRUE)) {
@@ -48,15 +60,25 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     diet.file <- read.csv(diet.file, sep=' ')
     hab.chk <- FALSE
     if(any('Habitat' == colnames(diet.file))) hab.chk <- TRUE
+    ##browser()
     if(hab.chk){
-        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
-        ## ~           CHECHK THIS PART!!!!       ~ ##
-        ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
-        new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Habitat"))
+        if(any('Updated' == colnames(diet.file))){
+            new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Habitat", "Updated"))
+            rem       <- which(colnames(diet.file) == 'Updated')
+            new.diet  <- new.diet[, - rem]
+        } else {
+            new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Habitat"))
+        }
         time      <- unique(diet.file$Time)
         stocks    <- unique(diet.file$Habitat)
     } else {
-        new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock"))
+        if(any('Updated' == colnames(diet.file))){
+            new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock", "Updated"))
+            rem       <- which(colnames(diet.file) == 'Updated')
+            new.diet  <- new.diet[, - rem]
+        } else {
+            new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock"))
+        }
         time      <- unique(diet.file$Time)
         stocks    <- unique(diet.file$Stock)
     }
@@ -76,14 +98,14 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                                      selectInput('Stocks', 'Stocks :', stocks)
                                                  },
                                                  numericInput("Thr", "Threshold :", min = 1e-16,  max = 1, value = 1e-4, step = 0.001)
-                                                 )
+                                             )
                                              ),
                                       column(10,
                                              plotOutput('plot2', width = "100%", height = "400px"),
                                              plotOutput('plot3', width = "100%", height = "400px")
                                              )
                                   )
-                                 ),
+                                  ),
                          tabPanel('Predation - by Cohort',
                                   fluidRow(
                                       column(2,
@@ -103,49 +125,20 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
         function(input, output, session) {
             pred.cohort <- reactive({
                 if(hab.chk){
-                    pred.pos      <- which(diet.file$Time == input$Time & diet.file$Predator == input$FG2)
+                    pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG2, ]
                 } else {
-                    pred.pos      <- which(diet.file$Time == input$Time & diet.file$Predator == input$FG2 & diet.file$Stock == as.numeric(input$Stocks2))
+                    pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG2 & new.diet$Stock == as.numeric(input$Stocks2), ]
                 }
-                pred.dat.filt <- diet.file[pred.pos, ]
-                ## removing pry that is less than 1% of the total diet
-                rm.vec        <- 1
-                for(rem in 5 : ncol(pred.dat.filt)){
-                    if(all(pred.dat.filt[, rem] < input$Thr2)) rm.vec <- c(rm.vec, rem)
-                }
-                if(length(rm.vec) > 1){
-                    rm.vec        <- rm.vec[-1]
-                    pred.dat.filt <- pred.dat.filt[, - rm.vec]
-                }
-                if(hab.chk){
-                    plt           <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Habitat'))
-                } else {
-                    plt           <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Cohort', 'Stock'))
-                }
-
+                pred.new <- pred.new[pred.new$value > input$Thr2, ]
             })
 
             predator <- reactive({
                 if(hab.chk){
-                    pred.pos      <- which(diet.file$Predator == input$FG & diet.file$Habitat == input$Stocks)
+                    pred.new <- new.diet[new.diet$Predator == input$FG & new.diet$Habitat == input$Stocks, ]
                 } else {
-                    pred.pos      <- which(diet.file$Predator == input$FG & diet.file$Stock == as.numeric(input$Stocks))
+                    pred.new <- new.diet[new.diet$Predator == input$FG & new.diet$Stock == as.numeric(input$Stocks), ]
                 }
-                pred.dat.filt <- diet.file[pred.pos, ]
-                ## removing pry that is less than 1% of the total diet
-                rm.vec        <- 1
-                for(rem in 5 : ncol(pred.dat.filt)){
-                    if(all(pred.dat.filt[, rem] < input$Thr)) rm.vec <- c(rm.vec, rem)
-                }
-                if(length(rm.vec) > 1){
-                    rm.vec        <- rm.vec[-1]
-                    pred.dat.filt <- pred.dat.filt[, - rm.vec]
-                }
-                if(hab.chk){
-                    plt  <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Habitat'))
-                } else {
-                    plt  <- melt(pred.dat.filt, id.vars=c('Time', 'Predator', 'Cohort', 'Stock'))
-                }
+                pred.new <- pred.new[pred.new$value > input$Thr, ]
             })
             prey <- reactive({
                 out.diet <- filter(new.diet, variable ==  input$FG, value > 0.0001)
