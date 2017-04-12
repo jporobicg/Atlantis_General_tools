@@ -590,7 +590,7 @@ Bio.func <- function(nc.file, groups.csv, numlayers){
 text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
     if(!isTRUE(Vector)){
         text <- text[grep(pattern = pattern, text)]
-        txt  <- gsub(pattern = '[ ]+' ,  '|',  text)
+        txt  <- gsub(pattern = '[[:space:]]+' ,  '|',  text)
         col1 <- col2 <- vector()
         for( i in 1 : length(txt)){
             tmp     <- unlist(strsplit(txt[i], split = '|', fixed = TRUE))
@@ -641,6 +641,7 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
 ##' @author Demiurgo
 gape.func <- function(groups.csv, Struct, Biom.N, prm){
     ## Gape size and adult and young age
+    debug(text2num)
     KLP                     <- text2num(prm, 'KLP', FG = as.character(groups.csv$Code))
     KUP                     <- text2num(prm, 'KUP',  FG = as.character(groups.csv$Code))
     age                     <- text2num(prm, '_age_mat', FG = as.character(groups.csv$Code))
