@@ -352,7 +352,7 @@ feeding.mat.shy <- function(prm.file, grp.file, nc.file, bgm.file, cum.depths, q
                 ggplot(data = melt(t.o.mat),
                        aes(x = X1, y = X2, fill = value)) + geom_tile(aes( fill = factor(value))) +
                     theme(panel.background = element_blank(), axis.text.x = element_text(angle = 90, hjust = 1)) + labs(x = 'Prey', y = 'Predator') + scale_x_discrete(position = "top") +
-                    scale_fill_grey(start = .9, end = 0, name = 'Gape overlap', labels = c('Yes', 'No')) +
+                    scale_fill_grey(start = .9, end = 0, name = 'Gape overlap', labels = c('No', 'Yes')) +
                     annotate("rect", xmin = linex() -.5, xmax = linex() +.5, ymin = 0, ymax = ncol(t.o.mat) + 1,
                              alpha = .1, colour = 'royalblue') +
                     annotate("rect", xmin =  - .5, xmax = nrow(t.o.mat) + .5, ymin = liney() - .5, ymax = liney() + .5,
