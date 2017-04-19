@@ -46,7 +46,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     sub.old <- cbind(old.dat[c('Time', as.character(grp))], Simulation = 'previous')
     sub.cur <- cbind(cur.dat[c('Time', as.character(grp))], Simulation = 'current')
     sp.name <- c("Time", paste0('Rel', grp),"PelDemRatio", "PiscivPlankRatio")
-    rel.bio <- melt(data[, sp.name], id.vars = 'Time')
+    rel.bio <- melt(cur.dat[, sp.name], id.vars = 'Time')
     if(!all(sub.old$Time ==  sub.cur$Time)) stop('The time steps of the total time of the simulations are different')
     n.r      <- nrow(sub.cur)
     names.fg <- names(sub.old)
