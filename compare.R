@@ -29,7 +29,6 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     }
     library(RColorBrewer)
     ## Colours
-    mycol     <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
     if(is.null(folder2)){
         if(file.exists(biomass.old.file)){
             old.dat <- read.csv(biomass.old.file, sep = ' ')
@@ -46,6 +45,8 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     grp     <- grp[grp$IsTurnedOn == 1, ]$Code
     sub.old <- cbind(old.dat[c('Time', as.character(grp))], Simulation = 'previous')
     sub.cur <- cbind(cur.dat[c('Time', as.character(grp))], Simulation = 'current')
+    sp.name <- c("Time", paste0('Rel', grp),"PelDemRatio", "PiscivPlankRatio")
+    rel.bio <- melt(data[, sp.name], id.vars = 'Time')
     if(!all(sub.old$Time ==  sub.cur$Time)) stop('The time steps of the total time of the simulations are different')
     n.r      <- nrow(sub.cur)
     names.fg <- names(sub.old)
@@ -82,10 +83,19 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
         time      <- unique(diet.file$Time)
         stocks    <- unique(diet.file$Stock)
     }
+    mycol <- c(brewer.pal(8, "Dark2"), c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"))
+    mycol <- colorRampPalette(mycol)
     shinyApp(
         ui <- navbarPage("Compare outputs",
                          tabPanel('Biomass comparison',
-                                  plotOutput('plot1', width = "100%", height = "1000px")
+                                  tabsetPanel(
+                                      tabPanel('Total Biomass',
+                                               plotOutput('plot1', width = "100%", height = "1000px")
+                                               ),
+                                      tabPanel('Relative Biomass',
+                                               plotOutput('plot1B', width = "100%", height = "1000px")
+                                               )
+                                  )
                                   ),
                          tabPanel('Predation - over Time',
                                   fluidRow(
@@ -120,7 +130,11 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                              plotOutput('plot4', width = "100%", height = "600px")
                                              )
                                   )
-                                  )
+                                  ),
+                         ## -- Exit --
+                         tabPanel(
+                             actionButton("exitButton", "Exit")
+                         )
                          ),
         function(input, output, session) {
             pred.cohort <- reactive({
@@ -140,33 +154,47 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                 }
                 pred.new <- pred.new[pred.new$value > input$Thr, ]
             })
+            observeEvent(input$exitButton, {
+                stopApp()
+            })
             prey <- reactive({
-                out.diet <- filter(new.diet, variable ==  input$FG, value > 0.0001)
+                out.diet <- new.diet[ new.diet$variable ==  input$FG & new.diet$value > input$Thr, ]
             })
             output$plot1 <- renderPlot({
                 plot <- ggplot(dat.tot, aes(x = Time, y = value, colour = Simulation)) +
                     geom_line() + facet_wrap(~ variable, ncol = 4,  scale = 'free_y') + theme_bw()+
-                    scale_color_manual(values = mycol[c(2, 6)])
+                    scale_color_manual(values = mycol(2))
                 plot <- update_labels(plot, list(x = 'Time step', y = 'Biomass (tons)'))
                 plot
             })
+             output$plot1B <- renderPlot({
+                 plot <- ggplot(rel.bio, aes(x = Time, y = value)) +
+                     geom_line(colour = 'firebrick3') + facet_wrap( ~ variable, ncol = 4) +
+                     theme_bw() + ylim(0, 2) +
+                     annotate('rect', xmin =  - Inf, xmax = Inf, ymax = 1.5, ymin = 0.5, alpha = .1, colour = 'royalblue', fill = 'royalblue')
+                 plot <- update_labels(plot, list(x = 'Time step', y = 'Relative Biomass (Bt/B0)'))
+                 plot
+            })
             output$plot2 <- renderPlot({
-                ggplot(predator(), aes(x = Time, y = value, fill = variable, width = 1)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Dark2") +
+                colorpp  <- mycol(length(unique(predator()$variable)))
+                ggplot(predator(), aes(x = Time, y = value, fill = variable, width = 1)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp, name = 'Prey') +
                     labs(list(title = paste('Predator -', input$FG), x = 'Time step', y = 'Proportion', colour = 'Prey'))
             })
             output$plot3 <- renderPlot({
-                ggplot(prey(), aes(x = Time, y = value, fill = Predator, width = 1)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Paired") +
+                colorpp <- mycol(length(unique(prey()$Predator)))
+                ggplot(prey(), aes(x = Time, y = value, fill = Predator, width = 1)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp) +
                     labs(list(title = paste('Prey -', input$FG), x = 'Time step', y = 'Proportion'))
             })
             output$plot4 <- renderPlot({
+                colorpp <- mycol(length(unique(pred.cohort()$variable)))
                 if(ncol(pred.cohort()) == 4){
                     df <- data.frame()
                     ggplot(df) + geom_bar() + labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
                 } else if(hab.chk){
-                    ggplot(pred.cohort(), aes(x = Habitat, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Dark2") +
+                    ggplot(pred.cohort(), aes(x = Habitat, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp, name = 'Prey') +
                         labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Habitat', y = 'Proportion'))
                 } else{
-                    ggplot(pred.cohort(), aes(x = Cohort, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_brewer(palette = "Dark2") +
+                    ggplot(pred.cohort(), aes(x = Cohort, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp) +
                         labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
                 }
             })
