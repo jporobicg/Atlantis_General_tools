@@ -83,6 +83,13 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
         time      <- unique(diet.file$Time)
         stocks    <- unique(diet.file$Stock)
     }
+
+    new.bio <- melt(sub.cur, id = c('Time', 'Simulation'))
+    new.bio <- new.bio[new.bio$variable %in%  as.character(unique(new.diet$Predator)), ]
+    colnames(new.bio) <- c('Time', 'Simulation', 'variable', 'Biomass')
+    new.bio <- left_join(new.diet, new.bio, by = c('Predator' = 'variable', 'Time'))
+    new.bio$eff.pred <- new.bio$Biomass * new.bio$value
+    new.bio <- new.bio[, c('Time', 'Predator', 'variable', 'eff.pred' )]
     mycol <- c(brewer.pal(8, "Dark2"), c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"))
     mycol <- colorRampPalette(mycol)
     shinyApp(
@@ -158,7 +165,9 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                 stopApp()
             })
             prey <- reactive({
-                out.diet <- new.diet[ new.diet$variable ==  input$FG & new.diet$value > input$Thr, ]
+                out.diet <- new.bio[new.bio$variable ==  input$FG, ]
+                trh.max  <- max(out.diet$eff.pred) * input$Thr
+                out.diet <- out.diet[out.diet$eff.pred > trh.max, ]
             })
             output$plot1 <- renderPlot({
                 plot <- ggplot(dat.tot, aes(x = Time, y = value, colour = Simulation)) +
@@ -182,7 +191,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
             })
             output$plot3 <- renderPlot({
                 colorpp <- mycol(length(unique(prey()$Predator)))
-                ggplot(prey(), aes(x = Time, y = value, fill = Predator, width = 1)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp) +
+                ggplot(prey(), aes(x = Time, y = eff.pred, fill = Predator, width = 1)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp) +
                     labs(list(title = paste('Prey -', input$FG), x = 'Time step', y = 'Proportion'))
             })
             output$plot4 <- renderPlot({
