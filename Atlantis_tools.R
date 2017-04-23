@@ -581,12 +581,14 @@ weights <- function(FG, weight, metric = 'mg', wet = TRUE){
 ##' @param height Vector of the height at age of the functinal group, if is not provided the stimation would be using 1/5 of the total length
 ##' @param ratio is the ratio between the height and the with of the individual. In other words, if the ratio is .5, the width is onlye the hal of the height for thar specie. If is not provided the value of width would be the same than height
 ##' @param time.l Vector proportion of time invested for the specie searching for food.
-##' @param by.group  Arrange the output for a easy manipulation
+##' @param max.speed Maximum speed reported for the functional group. That set the high boundary for the calculation of the speed
+##' @param by.group Arrange the output for a easy manipulation
 ##' @return A vector witht the values of clereances for each functional group in mgNm3d-1
 ##' @author Demiurgo
-clearance <- function(fg = NULL, speed, len, height = NULL, ratio = NULL, time.l = NULL, by.group = TRUE){
+clearance <- function(fg = NULL, speed, len, height = NULL, ratio = NULL, time.l = NULL, max.speed = NULL, by.group = TRUE){
     ## Assumption Is length in 1 seconds
     speed <- ifelse(is.na(speed), len * 3600, speed) #speed mh-1
+    speed <- ifelse(is.na(max.speed), speed, ifelse(max.speed > speed, speed, max.speed))
     ## I assume the the height is at least 1/5 of the length
     if(is.null(height)) height <-  len / 5
     ## the with can be the same than the eight, but can have a deformation (flat fish)
