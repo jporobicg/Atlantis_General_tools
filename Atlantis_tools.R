@@ -72,7 +72,7 @@ hist.deph <- function(list.l, col.val = 1, dep.lim = NULL, n.file = 'Rfile', sav
     count = 1
     output <- list()
     if(isTRUE(save)) png(paste(n.file, '.png', sep = ''), width = 1200, height = 1200)
-    ifelse((length(list.l) > 2 ), par(mfrow = c(3, 3), cex = 1.4), par(mfrow = c(1, 2), cex = 1.4))
+    ifelse((length(list.l) > 2 ), par(mfrow = c(3, 4), cex = 1.4), par(mfrow = c(1, 2), cex = 1.4))
     names.out <- ''
     for( i in 1 : length(list.l)){
         data  <- list.l[[i]]
@@ -232,7 +232,8 @@ FG <- function(data, column=1){
                ifelse(data[, column] %in% c('Bare Rock', 'Ruble'), 'ROC',
                ifelse(data[, column] == 'Sand', 'SAN',
                ifelse(data[, column] %in% c('Brown Alga', 'Green Alga', 'Red Alga'), 'MA',
-               ifelse(data[, column] %in% c('Coral'), 'COR', NA))))))))))))))))))))))
+               ifelse(data[, column] %in% c('Coral'), 'COR',
+               ifelse(data[, column] == 'Orange Roughy', 'ORO', NA)))))))))))))))))))))))
     return(data)
 }
 
@@ -578,19 +579,23 @@ weights <- function(FG, weight, metric = 'mg', wet = TRUE){
 ##' @param fg Vector with the name of the functional groups
 ##' @param speed Vector with the speed in mh-1. If the Speed is nor available ('NA') the speed would be calculated using the length at age class of the FG;
 ##' @param len Vector witht he length of the at Age class of the functional groups
-##' @param height Vector of the height at age of the functinal group, if is not provided the stimation would be using 1/5 of the total length
+##' @param height Vector of the ratio height compare to the length at age of the functinal group, if is not provided the stimation would be using 1/5 of the total length
 ##' @param ratio is the ratio between the height and the with of the individual. In other words, if the ratio is .5, the width is onlye the hal of the height for thar specie. If is not provided the value of width would be the same than height
 ##' @param time.l Vector proportion of time invested for the specie searching for food.
 ##' @param max.speed Maximum speed reported for the functional group. That set the high boundary for the calculation of the speed
 ##' @param by.group Arrange the output for a easy manipulation
 ##' @return A vector witht the values of clereances for each functional group in mgNm3d-1
 ##' @author Demiurgo
-clearance <- function(fg = NULL, speed, len, height = NULL, ratio = NULL, time.l = NULL, max.speed = NULL, by.group = TRUE){
-    ## Assumption Is length in 1 seconds
-    speed <- ifelse(is.na(speed), len * 3600, speed) #speed mh-1
+clearance <- function(fg = NULL, speed, len, height = NA, ratio = NULL, time.l = NULL, max.speed = NULL, alfa = NULL, beta = NULL, by.group = TRUE){
+    ## General assumption, If I dont have the speed I will use the mass to calculate the speed
+    mass <- alometric(len, alfa, beta)
+
+    ## Assumption based on Sato et al 2007 Swimming speed
+    speed <- ifelse(is.na(speed), mass ^ 0.27 * 3600, speed) # speed mh-1
     speed <- ifelse(is.na(max.speed), speed, ifelse(max.speed > speed, speed, max.speed))
     ## I assume the the height is at least 1/5 of the length
-    if(is.null(height)) height <-  len / 5
+
+    height <- ifelse(is.na(height), len / 5, len * height)
     ## the with can be the same than the eight, but can have a deformation (flat fish)
     if(!is.null(ratio)){
         width  <- height * ratio
