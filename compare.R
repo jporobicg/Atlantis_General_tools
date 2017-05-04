@@ -75,11 +75,13 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
         stocks    <- unique(diet.file$Habitat)
     } else {
         if(any('Updated' == colnames(diet.file))){
-            new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock", "Updated"))
-            rem       <- which(colnames(diet.file) == 'Updated')
-            new.diet  <- new.diet[, - rem]
+            new.diet        <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock", "Updated"))
+            rem             <- which(colnames(diet.file) == 'Updated')
+            new.diet        <- new.diet[, - rem]
+            names(new.diet) <- c("Time","Predator","AgeGroup","Stock","variable", "value")
         } else {
-            new.diet  <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock"))
+            new.diet        <- melt(diet.file, id.vars = c("Time", "Predator", "Cohort", "Stock"))
+            names(new.diet) <- c("Time","Predator","AgeGroup","Stock","variable", "value")
         }
         time      <- unique(diet.file$Time)
         stocks    <- unique(diet.file$Stock)
@@ -94,14 +96,15 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     mycol             <- colorRampPalette(mycol)
     ## Read in and prepare the Biomass by cohort file
     if(!is.null(age.biomass)){
-        cohort.file      <- read.csv(paste(folder1, age.biomass, sep = "/"), sep = ' ')
-        new.cohort       <- melt(cohort.file, id.vars = c("Time")) %>%
-            separate(., variable, into = c("variable","Agcl"), sep = "[.]")
-        new.fract.cohort <- new.cohort %>%
-            .[.$variable %in%  as.character(unique(new.diet$Predator)), ] ## only take the groups which have values in the predator diet file
-        colnames(new.fract.cohort) <- c("Time", "variable","Agcl", "Biomass")
-        new.fract.cohort           <- left_join(new.diet, new.fract.cohort, by = c('Predator' = 'variable', 'Time')) ## join the values for the fraction of each prey eaten by each predator
-        new.fract.cohort$frac.Biom <- new.fract.cohort$Biomass * new.fract.cohort$value ## Biomass*value (which is the fraction of each prey eaten) = predated biomass
+        AgeGroup.file               <- read.csv(paste(folder1, age.biomass, sep = "/"), sep = ' ')
+        new.AgeGroup                <- melt(AgeGroup.file, id.vars = c("Time")) %>%
+            separate(., variable, into = c("variable","AgeGroup"), sep = "[.]")
+        new.fract.AgeGroup          <- new.AgeGroup %>%
+            .[.$variable %in%  as.character(unique(new.diet$Predator)), ] %>% ## only take the groups which have values in the predator diet file
+            mutate(AgeGroup = as.integer(AgeGroup))
+        colnames(new.fract.AgeGroup) <- c("Time", "variable","AgeGroup", "Biomass")
+        new.fract.AgeGroup <- left_join(new.diet, new.fract.AgeGroup, by = c('Predator' = 'variable','AgeGroup', 'Time')) ## join the values for the fraction of each prey eaten by each predator
+        new.fract.AgeGroup$frac.Biom <- new.fract.AgeGroup$Biomass * new.fract.AgeGroup$value ## Biomass*value (which is the fraction of each prey eaten) = predated biomass }
     }
     ## Start the Shiny application
     shinyApp(
@@ -118,7 +121,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                   )
                                   ),
                          if(!is.null(age.biomass)){
-                             tabPanel('Biomass - by Cohort',
+                             tabPanel('Biomass - by AgeGroup',
                                       fluidRow(
                                           column(2,
                                                  wellPanel(
@@ -128,7 +131,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                                                    value = FALSE)
                                                  )
                                                  ) ,
-                                          tabPanel('Biomass by cohort',
+                                          tabPanel('Biomass by AgeGroup',
                                                    plotOutput('plot5', width = "100%", height = "700px")
                                                    )
                                       )   )},
@@ -152,7 +155,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                   )
                                   ),
                          if(is.null(age.biomass)){
-                             tabPanel('Predation - by Cohort',
+                             tabPanel('Predation - by AgeGroup',
                                       fluidRow(
                                           column(2,
                                                  wellPanel(
@@ -168,7 +171,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                       )
                                       )},
                          if(!is.null(age.biomass)){
-                             tabPanel('Predation - by Cohort',
+                             tabPanel('Predation - by AgeGroup',
                                       fluidRow(
                                           column(2,
                                                  wellPanel(
@@ -193,9 +196,8 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
         ## Link the input for the different tabs with your original data
         ## Create the plots
         function(input, output, session) {
-
             if(!is.null(age.biomass)){
-                pred.cohort <- reactive({
+                pred.AgeGroup <- reactive({
                     if(hab.chk){
                         pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG4, ]
                     } else {
@@ -204,7 +206,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                     pred.new <- pred.new[pred.new$value > input$Thr4, ]
                 })
             } else {
-                pred.cohort <- reactive({
+                pred.AgeGroup <- reactive({
                     if(hab.chk){
                         pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG2, ]
                     } else {
@@ -213,7 +215,6 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                     pred.new <- pred.new[pred.new$value > input$Thr2, ]
                 })
             }
-
             predator <- reactive({
                 if(hab.chk){
                     pred.new <- new.diet[new.diet$Predator == input$FG & new.diet$Habitat == input$Stocks, ]
@@ -223,18 +224,17 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                 pred.new <- pred.new[pred.new$value > input$Thr, ]
             })
             if(!is.null(age.biomass)){
-                cohort <- reactive({
-                                        #cohort.new <- new.cohort[new.cohort$variable == input$FG & new.cohort$Stock == as.numeric(input$Stocks), ]
-                    cohort.new <- new.cohort[new.cohort$variable == input$FG3, ]
-                                        #cohort.new <- cohort.new[cohort.new$value > input$Thr3, ]
+                AgeGroup <- reactive({
+                                        #AgeGroup.new <- new.AgeGroup[new.AgeGroup$variable == input$FG & new.AgeGroup$Stock == as.numeric(input$Stocks), ]
+                    AgeGroup.new <- new.AgeGroup[new.AgeGroup$variable == input$FG3, ]
+                                        #AgeGroup.new <- AgeGroup.new[AgeGroup.new$value > input$Thr3, ]
                 })
-                fract.cohort <- reactive({
-                                        #fract.cohort.new <- new.fract.cohort[new.fract.cohort$variable == input$FG4 & new.fract.cohort$Stock4 == as.numeric(input$Stocks), ]
-                    fract.cohort.new <- new.fract.cohort[new.fract.cohort$Time == input$Time & new.fract.cohort$Predator == input$FG4, ]
-                    fract.cohort.new <- fract.cohort.new[fract.cohort.new$value > input$Thr4, ]
+                fract.AgeGroup <- reactive({
+                                        #fract.AgeGroup.new <- new.fract.AgeGroup[new.fract.AgeGroup$variable == input$FG4 & new.fract.AgeGroup$Stock4 == as.numeric(input$Stocks), ]
+                    fract.AgeGroup.new <- new.fract.AgeGroup[new.fract.AgeGroup$Time == input$Time & new.fract.AgeGroup$Predator == input$FG4, ]
+                    fract.AgeGroup.new <- fract.AgeGroup.new[fract.AgeGroup.new$value > input$Thr4, ]
                 })
             }
-
             observeEvent(input$exitButton, {
                 stopApp()
             })
@@ -269,48 +269,35 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                     labs(list(title = paste('Prey -', input$FG), x = 'Time step', y = 'Proportion'))
             })
             output$plot4 <- renderPlot({
-                colorpp <- mycol(length(unique(pred.cohort()$variable)))
-                if(ncol(pred.cohort()) == 4){
+                colorpp <- mycol(length(unique(pred.AgeGroup()$variable)))
+                if(ncol(pred.AgeGroup()) == 4){
                     df <- data.frame()
-                    ggplot(df) + geom_bar() + labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
+                    ggplot(df) + geom_bar() + labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'AgeGroup', y = 'Proportion'))
                 } else if(hab.chk){
-                    ggplot(pred.cohort(), aes(x = Habitat, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp, name = 'Prey') +
+                    ggplot(pred.AgeGroup(), aes(x = Habitat, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp, name = 'Prey') +
                         labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Habitat', y = 'Proportion'))
                 } else{
-                    ggplot(pred.cohort(), aes(x = Cohort, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp) +
-                        labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
+                    ggplot(pred.AgeGroup(), aes(x = AgeGroup, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp) +
+                        labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'AgeGroup', y = 'Proportion'))
                 }
             })
             if(!is.null(age.biomass)){
                 output$plot5 <- renderPlot({
                     if(!input$Free_scale){
-                        ggplot(cohort(), aes(x = Time, y = value )) +
-                            geom_line() + facet_wrap(~ Agcl, ncol = 4,  scale = 'free_y') + theme_bw() +
+                        ggplot(AgeGroup(), aes(x = Time, y = value )) +
+                            geom_line() + facet_wrap(~ AgeGroup, ncol = 4,  scale = 'free_y') + theme_bw() +
                             labs(list(x = 'Time step', y = 'Biomass (tons)'))
                     }
                     else {
-                        ggplot(cohort(), aes(x = Time, y = value )) +
-                            geom_line() + facet_wrap(~ Agcl, ncol = 4) + theme_bw() +
+                        ggplot(AgeGroup(), aes(x = Time, y = value )) +
+                            geom_line() + facet_wrap(~ AgeGroup, ncol = 4) + theme_bw() +
                             labs(list(x = 'Time step', y = 'Biomass (tons)'))
                     }
                 })
-
                 output$plot6 <- renderPlot({
-                    colorpp <- mycol(length(unique(fract.cohort()$variable)))
-                                        # if(ncol(fract.cohort()) == 4){
-                                        #   df <- data.frame()
-                                        #   ggplot(df) + geom_bar() + labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
-                                        # } else if(hab.chk){
-                                        #   ggplot(pred.cohort(), aes(x = Habitat, y = value, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp, name = 'Prey') +
-                                        #     labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Habitat', y = 'Proportion'))
-                                        # } else{
-                                        #   #ggplot(fract.cohort(), aes(x = Cohort, y = frac.Biom, fill = variable, width = .75)) + geom_bar(stat = "identity", position = 'fill') + scale_fill_manual(values = colorpp) +
-                                        # labs(list(title = paste('Predator  -', input$FG, 'on Time step :', input$Time), x = 'Cohort', y = 'Proportion'))
-
-                    ggplot(fract.cohort(), aes(x = Agcl, y = frac.Biom, fill = variable, width = .75)) + geom_bar(stat = "identity") +
+                    colorpp <- mycol(length(unique(fract.AgeGroup()$variable)))
+                    ggplot(fract.AgeGroup(), aes(x = Agcl, y = frac.Biom, fill = variable, width = .75)) + geom_bar(stat = "identity") +
                         scale_fill_manual(values = colorpp, name = 'Prey')
-
-                                        #}
                 })
 
 
