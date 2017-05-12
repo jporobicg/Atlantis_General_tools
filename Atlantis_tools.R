@@ -211,29 +211,31 @@ convex<-function(data = NULL, lon = NULL, lat = NULL, positive=FALSE){
 }
 
 FG <- function(data, column=1){
-    data$FG <- ifelse(data[, column] %in% c('Callanthias platei', 'Pampanito', 'Chromis meridiana', 'Scartichthys variolatus','Suezichthys sp.','Malapterus reticulatus','Pseudolabrus gayi','Kyphosus cinerascens','Graniento'), 'SPF',
-               ifelse(data[, column] %in% c('Corvina', 'Jurel', 'Jurelillo'), 'LPF',
+    data$FG <- ifelse(data[, column] %in% c('Pez Escorpion', 'Callanthias platei', 'Pampanito', 'Chromis meridiana', 'Paratrimma nigrimenta', 'Scartichthys variolatus','Suezichthys sp.','Malapterus reticulatus','Pseudolabrus gayi','Kyphosus cinerascens','Graniento', 'graniento', 'Paratrachichthys fernandezianus', 'Paralichthys fernandezianus'), 'SPF',
+               ifelse(data[, column] %in% c('Corvina', 'Jurel', 'Jurelillo', 'Sierra', 'Umbrina reedi', 'Pez Volador', 'Atun'), 'LPF',
                ifelse(data[, column] ==  'Vidriola', 'VID',
-               ifelse(data[, column] %in% c('Chironemus bicornis', 'Colorado', 'Cabrilla', 'Chancharro','Aseraggodes bahamondei', 'Pez Mariposa','Jerguilla', 'Monocentris reedi'), 'SBF',
+               ifelse(data[, column] %in% c('Chironemus delfini', 'Chalaco', 'Chironemus bicornis', 'Colorado', 'Col', 'Cabrilla', 'Chancharro', 'Pez mariposa', 'Aseraggodes bahamondei', 'Pez Mariposa','Jerguilla', 'Monocentris reedi', 'Parapercis dockinsi', 'Scorpaena thomsoni'), 'SBF',
                ifelse(data[, column] == 'Alfonsino', 'ALF',
-               ifelse(data[, column] %in% c('Bacalao', 'Lenguado', 'Paralabrax sp.', 'Aseraggodes bahamondei', 'Congrio', 'Lotella fernandeziana', 'Salmon'), 'LBF',
+               ifelse(data[, column] %in% c('Bacalao', 'Lenguado', 'Paralabrax sp.', 'Aseraggodes bahamondei', 'Congrio', 'Lotella fernandeziana', 'Salmon', 'Jerguillon'), 'LBF',
                ifelse(data[, column] == 'Tollo', 'CHO',
                ifelse(data[, column] == 'Anguila', 'ANG',
-               ifelse(data[, column] %in% c('Caracol Blanco', 'Ostra', 'Loco', 'Chiton', 'Gastropod', 'Slug', 'Snail'), 'MOL',
-               ifelse(data[, column] %in% c('Centolla', 'Jaiva', 'Estomatopodo', 'shrimp'), 'SCR',
-               ifelse(data[, column] == 'Pulpo', 'OCT',
+               ifelse(data[, column] %in% c('Caracol Blanco', 'Ostra', 'Loco', 'Chiton', 'Gastropod', 'Slug', 'Snail', 'Bivalve'), 'MOL',
+               ifelse(data[, column] %in% c('Crab', 'Ce', 'Centolla', 'Jaiva', 'Jaiba', 'Estomatopodo', 'shrimp'), 'SCR',
+               ifelse(data[, column] %in% c('Pulpo', 'Octopus'), 'OCT',
                ifelse(data[, column] == 'Lobo', 'OTA',
-               ifelse(data[, column] == 'Breca', 'BRC',
+               ifelse(data[, column] %in% c('Nemadactylus gayi', 'Breca'), 'BRC',
+               ifelse(data[, column] %in% c('Delphinus_delphi', 'Stenella_coeruleoalba', 'Tasmacetus_shepherdii', 'tursiops_truncatus'), 'DOL',
+               ifelse(data[, column] %in% c('Whale', 'Balaenoptera_borealis', 'Balaenoptera_inusculus', 'Balaenoptera_physalus_quoyi', 'Ziphius_cavirostris','Globicephala_macrorhynchus', 'Kogia_breviceps', 'Mesoplodon_bahamondi', 'Mesoplodones', 'Orcinus_orca', 'Physeter_catodon1980', 'Physeter_catodon'), 'CET',
                ifelse(data[, column] == 'Orange roughy', 'ORO',
                ifelse(data[, column] == 'Langosta', 'SPL',
                ifelse(data[, column] == 'Cangrejo dorado', 'GCR',
                ifelse(data[, column] %in% c('Actinia', 'Amphiura', 'Anemone', 'Erizo', 'Estrella de mar', 'Echinoide'), 'BCA',
-               ifelse(data[, column] %in% c('Bernacle', 'Black hydrozoan', 'Briozoo', 'Cucumber', 'Encrusting bryozoan', 'Hydrozoo', 'Polychaete', 'Worm', 'Sponge'), 'BFF',
-               ifelse(data[, column] %in% c('Bare Rock', 'Ruble'), 'ROC',
+               ifelse(data[, column] %in% c('Hidrozoo', 'Esponja','Bernacle', 'Black hydrozoan', 'Briozoo', 'Cucumber', 'Encrusting bryozoan', 'Hydrozoo', 'Polychaete', 'Worm', 'Sponge'), 'BFF',
+               ifelse(data[, column] %in% c('Bare Rock', 'Ruble', 'Cobble', 'Rubble'), 'ROC',
                ifelse(data[, column] == 'Sand', 'SAN',
-               ifelse(data[, column] %in% c('Brown Alga', 'Green Alga', 'Red Alga'), 'MA',
-               ifelse(data[, column] %in% c('Coral'), 'COR',
-               ifelse(data[, column] == 'Orange Roughy', 'ORO', NA)))))))))))))))))))))))
+               ifelse(data[, column] %in% c('Brown Alga', 'Green Alga', 'Red Alga', 'Green Microalga', 'Brown Microalga'), 'MA',
+               ifelse(data[, column] %in% c('Coral','Coral negro', 'Coral blanco'), 'COR',
+               ifelse(data[, column] == 'Orange Roughy', 'ORO', NA)))))))))))))))))))))))))
     return(data)
 }
 
@@ -286,6 +288,7 @@ by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FAL
     lista2 <- lista
     for(season in 1 : ifelse(isTRUE(only.s), 1, 4)){                             # By Season
         for( i in 1 : nrow(poly$attrib)){        # By Polygon
+
             for(j in 1 : length(lista)){         # By Sample
                lista      <- lista2
                 if(!isTRUE(only.s)){
@@ -333,7 +336,7 @@ by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FAL
 
 
 
-plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, leg.color = 'normal', specie=FALSE, leg = NULL, save = FALSE, name = NULL, ...){
+plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, leg.color = 'normal', specie=FALSE, leg = NULL, save = FALSE, name = NULL, PAR = TRUE, ...){
     #==================================================================#
     # poly     = Poly data form the read.poly() fuction                #
     # xlim     = vector of longitude limits                            #
@@ -366,10 +369,14 @@ plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, le
             var <- round(var / div, 3)
         }
         if(specie == TRUE){
-            var     <- var / sum(var)
+            #browser()
+            max.var <- max(var)
+            r.m.var <- max(var / sum(var))
+            var     <- var / max.var
+            max.var <- max(var)
             quart   <- 1 : length(var)
             color   <- rgb(t(col2rgb("royalblue")), alpha = var * 255, maxColorValue = 255)
-            etiq     <- seq(from = 0, to = 100,  by = 25)
+            etiq     <- ceiling(seq(from = 0, to = r.m.var * 100, length = 4))
             color.et <- rgb(t(col2rgb("royalblue")), alpha = (etiq / 100) * 255, maxColorValue = 255)
         } else {
             quart <- cut(var, breaks = unique(quantile(var, probs = c(1, 0.9, 0.7, 0.5, 0.3, 0))),
@@ -436,7 +443,7 @@ plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, le
         }
     } else {
         ## Only polygon
-        par(mar=c(4, 4, 4, 4) + 0.1,oma=c(3,3,3,3), ...)
+        if(PAR) par(mar=c(4, 4, 4, 4) + 0.1,oma=c(3,3,3,3), ...)
         plot(1, type = "n", axes = F, xlab = "", ylab = "", xlim = xlim, ylim = ylim,)
 
         ## Plot Polygons
@@ -588,7 +595,7 @@ weights <- function(FG, weight, metric = 'mg', wet = TRUE){
 ##' @author Demiurgo
 clearance <- function(fg = NULL, speed, len, height = NA, ratio = NULL, time.l = NULL, max.speed = NULL, alfa = NULL, beta = NULL, by.group = TRUE){
     ## General assumption, If I dont have the speed I will use the mass to calculate the speed
-    mass <- alometric(len, alfa, beta)
+    mass <- alometric((len * 100), alfa, beta) / 1000  ## in kilograms
 
     ## Assumption based on Sato et al 2007 Swimming speed
     speed <- ifelse(is.na(speed), mass ^ 0.27 * 3600, speed) # speed mh-1
@@ -705,9 +712,9 @@ mum.f <- function(length, weight, metric  = 'mg', wet = TRUE, spw.rate, mature, 
 ##' @author Demiurgo
 WtoN <- function(db, colW, colSp, colInd){
     ubi  <- which(db[, colInd] %in% c('p','P'))
-    temp <- ifelse(db[ubi, colSp] == 'Octupus', round(db[ubi, colW] / 723),
-            ifelse(db[ubi, colSp] == 'Breca', round(db[ubi, colW] / 746),
-            ifelse(db[ubi, colSp] == 'Anguila', round(db[ubi, colW] / 1013), NA)))
+    temp <- ifelse(db[ubi, colSp] == 'OCT', round(db[ubi, colW] / 723),
+            ifelse(db[ubi, colSp] == 'BRC', round(db[ubi, colW] / 746),
+            ifelse(db[ubi, colSp] == 'ANG', round(db[ubi, colW] / 1013), NA)))
     nvec <- db[, colW]
     nvec[ubi] <- temp
     db$Count <- nvec
@@ -1174,4 +1181,46 @@ diet.chk <- function(group.file, prm.file, nc.file){
            aes(x = X1, y = X2, fill = value)) + geom_tile() +
         scale_fill_gradient(limits=c(0, max(real.vec.pprey$value, na.rm = TRUE)), name = 'Predation value', low="white", high="red", na.value = 'white')  +
         theme(panel.background = element_blank()) + labs(x = 'Prey', y = 'Predator')+scale_x_discrete(position = "top")
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Clean data for spatial distribution of species
+##' @param poly Object poly generated by the by.pol function
+##' @param nomb name of the colums or functional groups to be clean
+##' @return a clean poly structure
+##' @author Demiurgo
+clean <- function(poly, nomb){
+    cir.se <- c(4, 1 : 4, 1)
+    for(fg in nomb){
+        dbs  <- cbind(poly[[1]]$attrib[, fg], poly[[2]]$attrib[, fg],
+                      poly[[3]]$attrib[, fg], poly[[4]]$attrib[, fg])
+        rsea <- apply(dbs, 2, function(x) all(is.na(x)))
+        if(sum(rsea) > 2){ ## At least 3 seasons need to have data
+            mean.s <- apply(dbs, 1, function(x) sum(x, na.rm = TRUE))
+            for(sea in 1 : 4){
+                poly[[sea]]$attrib[, fg] <- mean.s
+            }
+        } else if(sum(rsea)  == 1){
+            na.s                      <- which(rsea)
+            poly[[na.s]]$attrib[, fg] <- rowMeans(dbs[, cir.se[c(na.s, na.s + 2)]], na.rm = TRUE)
+        }
+        ## reading again the fixed distribution
+        dbs  <- cbind(poly[[1]]$attrib[, fg], poly[[2]]$attrib[, fg],
+                      poly[[3]]$attrib[, fg], poly[[4]]$attrib[, fg])
+        for(box in 1 : nrow(dbs)){
+            if(all(is.na(dbs[box, ]))) next()
+            na.box <- which(is.na(dbs[box, ]))
+            if(length(na.box) == 1){
+                dbs[box, na.box] <- mean(dbs[box, cir.se[c(na.box, na.box + 2)]], na.rm = TRUE)
+            } else {
+                dbs[box, ] <- mean(dbs[box, ], na.rm = TRUE)
+            }
+        }
+        for(sea in 1 : 4){
+            poly[[sea]]$attrib[, fg] <- dbs[, sea]
+        }
+    }
+    return(poly)
 }

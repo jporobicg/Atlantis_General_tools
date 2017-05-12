@@ -134,7 +134,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                                           tabPanel('Biomass by AgeGroup',
                                                    plotOutput('plot5', width = "100%", height = "700px")
                                                    )
-                                      )   )},
+                                      ))},
                          tabPanel('Predation - over Time',
                                   fluidRow(
                                       column(2,
@@ -296,7 +296,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
                 })
                 output$plot6 <- renderPlot({
                     colorpp <- mycol(length(unique(fract.AgeGroup()$variable)))
-                    ggplot(fract.AgeGroup(), aes(x = Agcl, y = frac.Biom, fill = variable, width = .75)) + geom_bar(stat = "identity") +
+                    ggplot(fract.AgeGroup(), aes(x = AgeGroup, y = frac.Biom, fill = variable, width = .75)) + geom_bar(stat = "identity") +
                         scale_fill_manual(values = colorpp, name = 'Prey')
                 })
 
