@@ -288,9 +288,8 @@ by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FAL
     lista2 <- lista
     for(season in 1 : ifelse(isTRUE(only.s), 1, 4)){                             # By Season
         for( i in 1 : nrow(poly$attrib)){        # By Polygon
-
             for(j in 1 : length(lista)){         # By Sample
-               lista      <- lista2
+                lista      <- lista2
                 if(!isTRUE(only.s)){
                     lista[[j]] <- lista[[j]][which(lista[[j]][, sea]  == season), ] # Only samples from the same Season
                 }
@@ -301,6 +300,7 @@ by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FAL
                     cat('\n\nEspecies : ', lista[[j]][1, 9])
                     cat('\nnumero de individuos iniciales ', sum(inpol))
                 }
+
                 if(poly$attrib[i, 3] >= 0){
                     ## be Sure you don't have samples on land
                     ## If you have will change the position to the more close polygon
@@ -334,18 +334,90 @@ by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FAL
     return(output)
 }
 
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Relocation of species from inside of a polygon to another closest
+##' @param eddies Location of eddies
+##' @param centroids Centroids of the polygons
+##' @param polygon IDPolygons to remove
+##' @return the new position of the eddies
+##' @author Demiurgo
+move.point <- function(points, centroid, island){
+    library(sp)
+    ##########################################################
+    ##  This function move the points from inside on an area #
+    ##  to another area closer                               #
+    ##########################################################
+    in.pol <- point.in.polygon(points[, 1], points[, 2], island[, 1], island[, 2])
+    if(all(in.pol == 0)) return(points)
+    pos           <- which(in.pol == 1)
+    in.island     <- points[pos, ]
+    in.island.rad <- deg2rad(in.island)
+    centroid.rad  <- deg2rad(centroid)
+    for(i.ed in 1: length(pos)){
+        dist.pos <- which.min(gcd.hf(pos1 = matrix(in.island.rad[i.ed, ], ncol = 2), pos2 = -centroid.rad, mat = TRUE))
+        points[pos[i.ed], 1 : 2] <-  unlist(centroid[dist.pos, 1 : 2]  *  - 1, use.names = FALSE)
+    }
+    return(points)
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Degrees to radians
+##' @param deg Coordinates in degrees
+##' @return Object with the Lat and Lon information in Radians
+##' @author Demiurgo
+deg2rad <- function(deg){
+    rad <- deg * pi / 180
+    return(rad)
+}
+
+##' @description Calculates the geodesic distance between two points specified by radian latitude/longitude using the Haversine formula (hf)
+##' @title Haversine distance formula
+##' @param long1 Longitude of the first point in radians
+##' @param lat1 Latitude of the second point in radians
+##' @param long2 Longitude of the first point in radians
+##' @param lat2 Latitude of the second point in radians
+##' @param mat TRUE or FALSE,  identified if the information is provided in two diferent matrix, one for the initial position and a second matrix for the final position
+##' @param pos1 If mat = TRUE this matrix represent the first position witht the first colum for the Longitude and the second for the Latitude
+##' @param pos2 If mat = TRUE this matrix represent the second position witht the first colum for the Longitude and the second for the Latitude
+##' @return the distance in m for eatch points
+##' @author Demiurgo
+gcd.hf <- function(long1 = NULL, lat1 = NULL, long2 = NULL, lat2 = NULL, mat = FALSE, pos1 = NULL, pos2 = NULL) {
+    if(isTRUE(mat)){
+        long1 <- pos1[, 1]
+        lat1  <- pos1[, 2]
+        long2 <- pos2[, 1]
+        lat2  <- pos2[, 2]
+    }
+  R <- 6371 # Earth mean radius [km]
+  delta.long <- (long2 - long1)
+  delta.lat <- (lat2 - lat1)
+  a <- sin(delta.lat / 2)^ 2 + cos(lat1) * cos(lat2) * sin(delta.long / 2)^ 2
+    if(isTRUE(mat)){
+        sq               <- sqrt(a)
+        sq[which(sq >1)] <- 1
+        c                <- 2 * asin(sq)
+    }else{
+        c <- 2 * asin(min(1, sqrt(a)))
+    }
+  d <- R * c
+  d <- d * 1000
+  return(d) # Distance in m
+}
+
+
+
 
 
 plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, leg.color = 'normal', specie=FALSE, leg = NULL, save = FALSE, name = NULL, PAR = TRUE, ...){
     #==================================================================#
-    # poly     = Poly data form the read.poly() fuction                #
-    # xlim     = vector of longitude limits                            #
-    # ylim     = vector of latitude limits                             #
-    # sc       = Scale factor (between lat and lon)                    #
-    # OnlyPoly = Information for lon and lat is obtained from the poly #
-    # leg.col  = Color of the legend base on the atributes             #
-    # leg      = Legend                                                #
-    # =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  = #
+                                        #     # xlim     = vector of longitude limits                            #
+    # ylim     = vector of latitude limits                   island     # sc       = Scale factor (between lat and lon)                    #
+                                        # OnlyPoly = Information for lon and lat is obtained from the     # leg.col  = Color of the legend base on the atributes             #
+    # leg      = Legend                                      island     # =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  = #
 
     ## Lybraries
     library(maps)
@@ -1187,8 +1259,7 @@ diet.chk <- function(group.file, prm.file, nc.file){
 ##'
 ##' .. content for \details{} ..
 ##' @title Clean data for spatial distribution of species
-##' @param poly Object poly generated by the by.pol function
-##' @param nomb name of the colums or functional groups to be clean
+##' @param ##' @param nomb name of the colums or functional groups to be clean
 ##' @return a clean poly structure
 ##' @author Demiurgo
 clean <- function(poly, nomb){
