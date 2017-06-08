@@ -289,42 +289,35 @@ by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FAL
     for(season in 1 : ifelse(isTRUE(only.s), 1, 4)){                             # By Season
         for( i in 1 : nrow(poly$attrib)){        # By Polygon
             for(j in 1 : length(lista)){         # By Sample
-                lista      <- lista2
+                lista       <- lista2
+                total.traps <- length(unique(lista[[j]][ , la]))
                 if(!isTRUE(only.s)){
                     lista[[j]] <- lista[[j]][which(lista[[j]][, sea]  == season), ] # Only samples from the same Season
                 }
                 ## Vector of 0 and 1 with te location of the samples inpol=1 if not inpol = 0
-                inpol      <- ifelse(point.in.polygon( - lista[[j]][, lo],  - lista[[j]][, la], lon[i,], lat[i, ]) > 0, 1, 0)
-                if(!quiet){
-                    cat('\n\n =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  = ')
-                    cat('\n\nEspecies : ', lista[[j]][1, 9])
-                    cat('\nnumero de individuos iniciales ', sum(inpol))
-                }
-
-                if(poly$attrib[i, 3] >= 0){
-                    ## be Sure you don't have samples on land
-                    ## If you have will change the position to the more close polygon
-                    change <- which(inpol > 0)
-                    for(h in change){
-                        pos.new           <- which.min(abs(-lista[[j]][h, la]  - lat[i,]))
-                        lista[[j]][h, la] <-  - lat[i, pos.new]
-                        lista[[j]][h, lo] <-  - lon[i, pos.new]
-                    }
-                    inpol <- ifelse(point.in.polygon( - lista[[j]][, lo],  - lista[[j]][, la], lon[i,], lat[i, ]) > 0, 0, 0)
-                }
+                inpol <- ifelse(point.in.polygon( - lista[[j]][, lo],  - lista[[j]][, la], lon[i,], lat[i, ]) > 0, 1, 0)
                 scal  <- inpol * lista[[j]][, mult]
-                if(!quiet){
-                    cat('\nFinal number', sum(scal))
+                if(!quiet & sum(scal) > 0){
+                    cat('\n\n =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  = ')
+                    cat('\n\nSpecies : ', lista[[j]]$FG[1])
+                    cat('\nNumber in polygon', sum(scal))
                     cat('\nSeason',  season, '\tPolygon(i)', poly[[2]][i, 1], '\tSample(j)', j)
-                    readline("\nPress <return to continue")
                 }
                 if(!isTRUE(is.Crus)){
                     poly$attrib[i, j + 6] <- sum(scal, na.rm = TRUE) / sum(scal > 0)
                 #cat('\nsum :', sum(scal), '\t weight :', sum(scal>0), '\tCPUE', poly$attrib[i, j + 6])
                 } else  {
                     ## Devide the total catch by the number of traps
-                    n.traps <- length(levels(as.factor(lista[[j]][which(inpol > 0), la])))
-                    poly$attrib[i, j + 6] <- sum(scal) / n.traps
+                    n.traps   <- length(levels(as.factor(lista[[j]][which(inpol > 0), la])))
+                    abun.Weig <- (sum(scal) / n.traps) * (n.traps / total.traps)
+                    poly$attrib[i, j + 6] <- abun.Weig
+                    if(!quiet & sum(scal) > 0){
+                        cat('\nTraps ', n.traps)
+                        cat('\nTotal Traps ', total.traps)
+                        cat('\nRelative Abundance',  sum(scal) / n.traps)
+                        cat('\nRelative Abundance Weigthed',  abun.Weig)
+                        readline("\nPress <return to continue")
+                    }
                 }
             }
         }
@@ -407,10 +400,6 @@ gcd.hf <- function(long1 = NULL, lat1 = NULL, long2 = NULL, lat2 = NULL, mat = F
   d <- d * 1000
   return(d) # Distance in m
 }
-
-
-
-
 
 plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, leg.color = 'normal', specie=FALSE, leg = NULL, save = FALSE, name = NULL, PAR = TRUE, ...){
     #==================================================================#
@@ -863,7 +852,7 @@ movavg <- function(x, lag){
 init.number <- function(data, in.bios, boxes, groups, lfd, cover.d, m.weight){
     ## if the Biomass or number is empty the code will use the distribution assuming that
     ## the proportion by box is given or the proportion of cover.
-    area  <- boxes[order(boxes$box_id), ]$area * 1000000 # from k2 to m2
+    area  <- boxes[order(boxes$box_id), ]$area  # m2
     depth <- -boxes[order(boxes$box_id), ]$botz
     depth[depth < 0] <- NA
     Volumen <- area * depth
@@ -893,12 +882,14 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d, m.weight){
     N.pool     <-  with(in.bios, data.frame(FG  = as.character(FG[only.pools]),
                                             N  = weight2N(BioNumber[only.pools], 'g', reserve = FALSE)))
     ##~ match the same order of columns
-    ord.pool   <- which(colnames(prp.box) %in% N.pool$FG)
+    len.ord <- sum(colnames(prp.box) %in% N.pool$FG)
+    #ord.pool   <- which(colnames(prp.box) %in% N.pool$FG)
     ##~ data in a dataframe
-    N          <- array(NA, dim = c(length(ord.pool),nrow(prp.box)))
+    N          <- array(NA, dim = c(len.ord, nrow(prp.box)))
     namN       <- vector('character')
-    for( i in 1 : length(ord.pool)){
-        prop   <- prp.box[,ord.pool[i]] / sum(prp.box[,ord.pool[i]])
+    for( i in 1 : len.ord){
+        ord.prp <- which(colnames(prp.box) == N.pool$FG[i])
+        prop   <- prp.box[, ord.prp] / sum(prp.box[, ord.prp])
         N[i, ] <- as.numeric(prop * N.pool$N[i])
         if(N.pool$FG[i] %in% c('OCT', 'SQD')){
             N[i, ] <- N[i, ] / (Volumen)
@@ -925,37 +916,23 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d, m.weight){
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
     ## ~         NUMBER ESTIMATION      ~ ##
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ##
-    ## I will Use the same abundance for eat class. I can provided the age structure but I',  azy to do it
+    ## I will Use the same abundance for each class. I can provided the age structure but I',  azy to do it
     ## Convert Biomass to number
     numb    <- groups$Code[which(groups$NumCohorts > 1)]
     cohorts <- groups$NumCohorts[which(groups$NumCohorts > 1)]
     ##~ which functional groups are biomass pool
-    i.numb  <- which(colnames(data) %in% numb)
     o.numb  <- which(in.bios$FG %in% numb)
-    ##~ Proportion by box
-    prp.box <- data[, i.numb] / colSums(data[, i.numb])
     ##~ change from Biomass to numbers
-
-    #n.numb          <- which(in.bios$FG %in% numb & in.bios$type == 'B')
     in.bios$fg.Nums <- in.bios$BioNumber
     in.bios$RN      <- in.bios$SN <- NA
     ## numbers
-    #in.bios$fg.Nums[n.numb] <-  (in.bios$BioNumber[n.numb]) / in.bios$weight[n.numb]
-    ## Geting the Reserve nitrogenthe weight in gr
-    #in.bios$fg.Weight <- with(in.bios, fg.Nums * weight)
-    ## Structural weight
-    #in.bios$SN[o.numb] <- with(in.bios, weight2N(fg.Weight[o.numb], 'g', reserve = FALSE))
-    ## Reserve Weight
-    #in.bios$RN[o.numb] <- with(in.bios, weight2N(fg.Weight[o.numb], 'g'))
-
-    ## in.bios$fg.Nums[o.numb]
-    ## ##~ I pass from tons to gr and then number (the mean weight is on gr)
-    ## in.bios$BioNumber[n.numb] <- (in.bios$BioNumber[n.numb] * 1000000) / in.bios$weight[n.numb]
     ##~ Transform into number by cohort and area
     nam <- vector('character')
+
     for(i in o.numb){
         loc         <- which(lfd$FG %in% in.bios$FG[i])
-        l.prop      <- which(colnames(prp.box) %in% in.bios$FG[i])
+        l.prop      <- which(colnames(data) %in% in.bios$FG[i])
+        prop.box    <- data[, l.prop] / sum(data[, l.prop])
         ## By cohort
         N.at.Cohort  <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$fg.Nums[i])
         if(in.bios$type[i] == 'B'){ # from Biomass at age to numbers
@@ -966,11 +943,11 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d, m.weight){
         #RN.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$RN[i])
         #SN.at.Cohort <- as.numeric(lfd[loc, 2 :  ncol(lfd)] * in.bios$SN[i])
         ## By Area
-        tmp.N  <- array(NA, dim = c(groups$NumCohorts[which(groups$Code %in% in.bios$FG[i])], nrow(prp.box)))
+        tmp.N  <- array(NA, dim = c(groups$NumCohorts[which(groups$Code %in% in.bios$FG[i])], length(prop.box)))
         #tmp.SN <- tmp.RN <- tmp.N
         for(j in 1 : sum(N.at.Cohort > 0)){
-            prop        <- prp.box[,  l.prop] / sum(prp.box[,  l.prop])
-            tmp.N[j, ]  <- prop * N.at.Cohort[j]
+            #prop        <- prp.box[,  l.prop] / sum(prp.box[,  l.prop])
+            tmp.N[j, ]  <- prop.box * N.at.Cohort[j]
             #tmp.RN[j, ] <- prop * RN.at.Cohort[j]
             #tmp.SN[j, ] <- prop * SN.at.Cohort[j]
             pos.n       <- with(groups, which(Code %in% in.bios$FG[i]))

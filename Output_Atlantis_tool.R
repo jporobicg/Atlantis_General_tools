@@ -175,54 +175,66 @@ out.Atlantis <- function(result){
 ##' @param extraFG Extra functional groups that are not readed it by load_bps() function
 ##' @return Preprosessing output, ready to be use by ggplot2
 ##' @author Demiurgo based on Alex work
-pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init, extraFG = NULL){
-    cat('\n Defining additional variables')
-    bboxes    <- get_boundary(boxinfo = load_box(dir, bgm))
-    bps       <- load_bps(dir, fgs, init)
+pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init, extraFG = NULL, quiet = TRUE, spatial.out = FALSE){
+    if(spatial.out) cat('\nThe spatial algorith was selected, the pre-procesing my take a while\n')
+    if(!quiet) cat('\nGeneratig files path')
+    nc_gen    <- file.path(dir, nc_gen)
+    nc_prod   <- file.path(dir, nc_prod)
+    dietcheck <- file.path(dir, dietcheck)
+    yoy       <- file.path(dir, yoy)
+    ssb       <- file.path(dir, ssb)
+    prm_run   <- file.path(dir, prm_run)
+    prm_biol  <- file.path(dir, prm_biol)
+    fgs       <- file.path(dir, fgs)
+    bgm       <- file.path(dir, bgm)
+    init      <- file.path(dir, init)
+    if(!quiet) cat('\n Defining additional variables')
+    bboxes    <- get_boundary(boxinfo = load_box(bgm))
+    bps       <- load_bps(fgs, init)
     if(!is.null(extraFG)) {
         bps  <- c(bps, extraFG)
         cat('\n+++++++++++++\n You add the ', extraFG, 'as extra Functional group\n++++++++++++++++')
     }
-    bio_conv  <- get_conv_mgnbiot(dir, prm_biol)
+    bio_conv  <- get_conv_mgnbiot(prm_biol)
     ## By default data from all groups within the simulation is extracted!
-    groups      <- get_groups(dir, fgs)
-    groups_age  <- get_age_groups(dir, fgs)
+    groups      <- get_groups(fgs)
+    groups_age  <- get_age_groups(fgs)
     groups_rest <- groups[!groups %in% groups_age]
-    cat('\t\t...Done!')
-    cat('\nReading data from Atlantis simulation')
+    if(!quiet)cat('\t\t...Done!')
+    if(!quiet)cat('\nReading data from Atlantis simulation')
     vars        <- list("Nums", "StructN", "ResN", "N")
     grps        <- list(groups_age, groups_age, groups_age, groups_rest)
     dfs_gen     <- Map(load_nc, select_variable = vars, select_groups = grps,
-                       MoreArgs = list(dir = dir, nc = nc_gen, bps = bps, fgs = fgs, prm_run = prm_run, bboxes = bboxes))
+                       MoreArgs = list(nc = nc_gen, bps = bps, fgs = fgs, prm_run = prm_run, bboxes = bboxes))
     ## Read in raw untransformed data from nc_prod
     vars     <- list("Eat", "Grazing", "Growth")
     grps     <- list(groups_age, groups_rest, groups_age)
     dfs_prod <- Map(load_nc, select_variable = vars, select_groups = grps,
-                    MoreArgs = list(dir = dir, nc = nc_prod, bps = bps, fgs = fgs, prm_run = prm_run, bboxes = bboxes))
+                    MoreArgs = list(nc = nc_prod, bps = bps, fgs = fgs, prm_run = prm_run, bboxes = bboxes))
     ## Read in physics
-    flux    <- load_nc_physics(dir = dir, nc = nc_gen, select_physics = c("eflux", "vflux"),
+    flux    <- load_nc_physics(nc = nc_gen, select_physics = c("eflux", "vflux"),
                                prm_run = prm_run, bboxes = bboxes, aggregate_layers = FALSE)
-    sink    <- load_nc_physics(dir = dir, nc = nc_gen, select_physics = c("hdsource", "hdsink"),
+    sink    <- load_nc_physics(nc = nc_gen, select_physics = c("hdsource", "hdsink"),
                                prm_run = prm_run, bboxes = bboxes, aggregate_layers = FALSE)
-    physics <- load_nc_physics(dir = dir, nc = nc_gen,
+    physics <- load_nc_physics(nc = nc_gen,
                                select_physics = c("salt", "NO3", "NH3", "Temp", "Chl_a", "Denitrifiction"),
                                prm_run = prm_run, bboxes = bboxes, aggregate_layers = TRUE)
-    vol     <- load_nc_physics(dir = dir, nc = nc_gen, select_physics = "volume",
+    vol     <- load_nc_physics(nc = nc_gen, select_physics = "volume",
                                prm_run = prm_run, bboxes = bboxes, aggregate_layers = F)
-    vol_dz <- load_nc_physics(dir = dir, nc = nc_gen, select_physics = c("volume", "dz"),
+    vol_dz <- load_nc_physics(nc = nc_gen, select_physics = c("volume", "dz"),
                               prm_run = prm_run, bboxes = bboxes, aggregate_layers = F)
     dz     <- dplyr::filter(vol_dz, variable == "dz")
     vol    <- dplyr::filter(vol_dz, variable == "volume")
-    nominal_dz <- load_init(dir = dir, init = init, vars = "nominal_dz") %>% as.data.frame() %>%
+    nominal_dz <- load_init(init = init, vars = "nominal_dz") %>% as.data.frame() %>%
         dplyr::filter(!is.na(layer))
     ## Read in Dietcheck
-    df_dm <- load_dietcheck(dir = dir, dietcheck = dietcheck,
+    df_dm <- load_dietcheck(dietcheck = dietcheck,
                             fgs = fgs, prm_run = prm_run, version_flag = version_flag, convert_names = TRUE)
     ## Read in SSB/R
-    ssb_rec    <- load_rec(dir = dir, yoy = yoy, ssb = ssb, prm_biol = prm_biol)
+    ssb_rec    <- load_rec(yoy = yoy, ssb = ssb, prm_biol = prm_biol)
     ## Read in misc
-    df_agemat  <- prm_to_df(dir = dir, prm_biol = prm_biol, fgs = fgs, group = get_age_acronyms(dir, fgs), parameter = "age_mat")
-    dietmatrix <- load_dietmatrix(dir, prm_biol, fgs, convert_names = TRUE)
+    df_agemat  <- prm_to_df(prm_biol = prm_biol, fgs = fgs, group = get_age_acronyms(fgs), parameter = "age_mat")
+    dietmatrix <- load_dietmatrix(prm_biol, fgs, convert_names = TRUE)
     cat('\t\t...Done!')
     cat('\nApply preprocess calculations')
     ## Calculate biomass spatially
@@ -249,10 +261,10 @@ pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, versi
     ## Calculate spatial overlap
     sp_overlap <- calculate_spatial_overlap(biomass_spatial = bio_sp, dietmatrix = dietmatrix, agemat = df_agemat)
     ## Growth relative to initial conditions
-    rec_weight <- prm_to_df(dir = dir, prm_biol = prm_biol, fgs = fgs,
-                            group = get_age_acronyms(dir = dir, fgs = fgs),
+    rec_weight <- prm_to_df(prm_biol = prm_biol, fgs = fgs,
+                            group = get_age_acronyms(fgs = fgs),
                             parameter = c("KWRR", "KWSR", "AgeClassSize"))
-    pd         <- load_init_weight(dir = dir, init = init, fgs = fgs, bboxes = bboxes) %>% left_join(rec_weight) %>% split(.$species)
+    pd         <- load_init_weight(init = init, fgs = fgs, bboxes = bboxes) %>% left_join(rec_weight) %>% split(.$species)
     ## Calculate weight difference from one ageclass to the next!
     for (i in seq_along(pd)) {
         pd[[i]]$wdiff <- c((pd[[i]]$rn[1] + pd[[i]]$sn[1]) - (pd[[i]]$kwrr[1] + pd[[i]]$kwsr[1]),
@@ -293,7 +305,7 @@ pre.Atlantis.tools <- function(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, versi
         "ssb_rec"                = ssb_rec,       #20
         "structn_age"            = structn_age,
         "vol"                    = vol_ts,
-        'files'                  = c(dir, nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init, extraFG)
+        'files'                  = c(nc_gen, nc_prod, dietcheck,  yoy, ssb, version_flag, prm_run, prm_biol, fgs, bgm, init, extraFG)
     )
     cat('\t\t...Done\n\n!')
     return(result)
