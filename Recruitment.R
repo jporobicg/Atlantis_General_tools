@@ -48,6 +48,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     FSPB   <- NULL
     t = 1 ## counter
     if(!quiet) cat('\n Reading parameters')
+    fg.r=9
     for(fg.r in 1 : length(sps)){
         if(!sps[fg.r] %in% group.csv$Code[sp.dat]) next()
         if(rec$Value[fg.r] == 3){  ## Beverton Holt Recruitment
@@ -62,8 +63,14 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             FSPB                <- rbind(FSPB, fspb.tmp)
             rownames(FSPB)[t]   <- as.character(sps[fg.r])
             t                   <- t + 1
-        } else if(rec$Value[fg.r] == 1){ ## constant recruitment
-            rec$Alpha[fg.r] <- text2num(prm, paste0('KDENR_', sps[fg.r]), FG = 'look', Vector = TRUE)[1]
+        } else if(rec$Value[fg.r] == 1 || rec$Value[fg.r] == 12){ ## constant recruitment
+            rec$Alpha[fg.r]     <- text2num(prm, paste0('KDENR_', sps[fg.r]), FG = 'look', Vector = TRUE)[1]
+            fspb.tmp            <- text2num(prm, paste0('FSPB_', sps[fg.r]), FG = sps[fg.r], Vector = TRUE)
+            len                 <- ifelse(t == 1, length(fspb.tmp), ncol(FSPB))
+            fspb.tmp            <- c(fspb.tmp, rep(0, len - length(fspb.tmp)))
+            FSPB                <- rbind(FSPB, fspb.tmp)
+            rownames(FSPB)[t]   <- as.character(sps[fg.r])
+            t                   <- t + 1
         }
         rec$Time.sp[fg.r]   <- text2num(prm, paste0(sps[fg.r], '_Time_Spawn'), FG = 'look')[1, 2]
         rec$Period.sp[fg.r] <- text2num(prm, paste0(sps[fg.r], '_spawn_period'), FG = 'look')[1, 2]
@@ -95,6 +102,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     spw     <- NULL
     nam     <- NULL
     SSB.tot <- NULL
+    num.tot <- NULL
     fg.spw  <- list()
     fg.ssb  <- list()
     loo     <- 1
@@ -108,6 +116,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         KSPA     <- rec$KSPA[fg.row]
         sp.tmp   <- NULL
         SSB.fg   <- NULL
+        num.fg   <- NULL
         ## time of spawning
         time.stp <- seq(from = 0, by = 365, to = length(time))  + rec$Time.sp[fg.row]
         time.stp <- time.stp[time.stp < length(time)]
@@ -132,12 +141,15 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             spawn[spawn < 0] <- 0
             spawn <- spawn *  FSPB[pos.fspb, coh] ## individual spawn
             spawn <- spawn * nums      ## total spawn
+            num.sp <- nums  * FSPB[pos.fspb, coh]
             spw.coh[[coh]] <- spawn    ## spawning by time step and cohort
             ssb.coh[[coh]] <- SSB.tmp ## Biomass by time step and cohort
             if(length(dim(spawn)) > 2){
                 spawn   <- apply(spawn, 3, sum, na.rm = TRUE)
                 SSB.tmp <- apply(SSB.tmp, 3, sum, na.rm = TRUE)
+                num.tmp <- apply(num.sp, 3, sum, na.rm = TRUE)
             }
+            num.fg      <- rbind(num.fg, num.tmp)
             sp.tmp      <- rbind(sp.tmp, spawn)   ## Spawning by functional group and Age class
             SSB.fg      <- rbind(SSB.fg, SSB.tmp) ## Spawning Stock by functional group and Age class
         }
@@ -147,13 +159,36 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         nam     <- c(nam, as.character(cod.fg[fg]))
         fin.sp  <- colSums(sp.tmp)
         SSB.fg  <- colSums(SSB.fg)
+        num.fg  <- colSums(num.fg)
         ## all the estimation will have the same length
-        if(length(spw) > 0 && length(fin.sp) != ncol(spw)) fin.sp         <- fin.sp[seq(ncol(spw))]
-        if(length(SSB.tot) > 0 && length(SSB.fg) != ncol(SSB.tot)) SSB.fg <- SSB.fg[seq(ncol(SSB.tot))]
+        if(length(num.tot) > 0 && length(num.fg) != ncol(num.tot)){
+            ln <- max(length(num.fg), ncol(num.tot))
+            length(num.fg)                <- ln
+            tmp.num                       <- matrix(NA, ncol = ln, nrow = nrow(num.tot))
+            tmp.num[, seq(ncol(num.tot))] <- num.tot
+            num.tot                       <- tmp.num
+        }
+        if(length(spw) > 0 && length(fin.sp) != ncol(spw)){
+            ln <- max(length(fin.sp), ncol(spw))
+            length(fin.sp)            <- ln
+            tmp.spw                   <- matrix(NA, ncol = ln, nrow = nrow(spw))
+            tmp.spw[, seq(ncol(spw))] <- spw
+            spw                       <- tmp.spw
+        }
+        if(length(SSB.tot) > 0 && length(SSB.fg) != ncol(SSB.tot)){
+            ## increase the number of columns
+            ln <- max(length(SSB.fg), ncol(SSB.tot))
+            length(SSB.fg) <- ln
+            SSB.2.tot      <- matrix(NA, ncol = ln, nrow = nrow(SSB.tot))
+            SSB.2.tot[, seq(ncol(SSB.tot))] <- SSB.tot
+            SSB.tot        <- SSB.2.tot
+        }
+        num.tot <- rbind(num.tot, num.fg)
         SSB.tot <- rbind(SSB.tot, SSB.fg)
         spw     <- rbind(spw, fin.sp)
     }
     ## FG Names
+    rownames(num.tot) <- nam
     rownames(spw)     <- nam
     rownames(SSB.tot) <- nam
     if(!quiet) cat('      ...Done!')
@@ -196,13 +231,29 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             time.stp <- seq(from = 0, by = 365, to = length(time))  + rec$Time.sp[rec$FG == input$sp]
             time.stp <- time.stp[time.stp < length(time)]
         })
+        ## recruitment model
+         output$Rec.mod <- renderText({
+            mod   <- rec$Value[rec$FG == input$sp]
+            model <- ifelse(mod == 1, 'Constant	recruitment',
+                     ifelse(mod == 2, 'Determined by chlA',
+                     ifelse(mod == 3, 'Beverton-Holt',
+                     ifelse(mod == 4, 'Random Lognormal',
+                     ifelse(mod == 12, 'Fixed offspring', 'Other')))))
+            })
         ## Original Recruitment
         rec.bio <- reactive({
+            mod      <- rec$Value[rec$FG == input$sp]
             spawn.fg <- spw[input$sp, ]
             biom.fg  <- SSB.tot[input$sp, ]
+            num.fg   <- num.tot[input$sp, ]
             sp.plt   <- paste0(input$sp, '.0')
-            recruit  <- unlist(BH.rec(spawn.fg, rec$Alpha[rec$FG == input$sp], rec$Beta[rec$FG == input$sp], biom.fg))
-            new.rec  <- unlist(BH.rec(spawn.fg, input$new.alpha, input$new.beta, biom.fg))
+            if(mod == 3){
+                recruit  <- na.omit(unlist(BH.rec(spawn.fg, rec$Alpha[rec$FG == input$sp], rec$Beta[rec$FG == input$sp], biom.fg)))
+                new.rec  <- na.omit(unlist(BH.rec(spawn.fg, input$new.alpha, input$new.beta, biom.fg)))
+            } else if(mod == 12){
+                recruit <- na.omit(rec$Alpha[rec$FG == input$sp] * num.fg)
+                new.rec <- na.omit(input$new.alpha  * num.fg)
+            }
             rec.bio  <- recruit * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
             new.bio  <- new.rec * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
             yoy.fg   <- data.frame(Time = yoy$Time, Rec = yoy[, which(names(yoy) == sp.plt)])
@@ -215,13 +266,6 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             N.YOY    <- (new.bio * prop.dif)
             df.end   <- data.frame(Rec = rec.bio, N.YOY = N.YOY, N.Rec = new.bio, BYOY = n.yoy, TYOY = Time.yoy, PrpYOY = n.f.yoy[, 2], Prp.st = fst.val, P.diff = prop.dif)
         })
-        output$Rec.mod <- renderText({
-            mod   <- rec$Value[rec$FG == input$sp]
-            model <- ifelse(mod == 1, 'Constant	recruitment',
-                     ifelse(mod == 2, 'Determined by chlA',
-                     ifelse(mod == 3, 'Beverton-Holt',
-                     ifelse(mod == 4, 'Random Lognormal', 'Other'))))
-            })
         observeEvent(input$exitButton, {
             stopApp()
         })
