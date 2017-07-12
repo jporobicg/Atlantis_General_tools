@@ -21,7 +21,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     if (!require('stringr', quietly = TRUE)) {
         stop('The package stringr was not installed')
     }
-    if(!quiet) cat('      ...Done!')
+    if(!quiet) cat('  ...Done!')
     ## Reading files
     if(!quiet) cat('\n Reading files')
     nc.ini    <- nc_open(ini.nc.file)
@@ -79,7 +79,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         rec$Rec.SNW[fg.r]   <- text2num(prm, paste0('KWSR_', sps[fg.r]), FG = 'look')[1, 2]
         rec$Rec.RNW[fg.r]   <- text2num(prm, paste0('KWRR_', sps[fg.r]), FG = 'look')[1, 2]
     }
-    if(!quiet) cat('      ...Done!')
+    if(!quiet) cat('          ...Done!')
     if(!quiet) cat('\n Reading YOY from Atlantis')
     ##~~~~~~~~~~~~~~~~~~~~~~~~~##
     ##    YOY file array       ##
@@ -91,14 +91,14 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         yoy.tmp[, c]   <- (yoy[, c] / yoy[1, c])
     }
     f.yoy <- cbind(Time = yoy$Time, yoy.tmp[, which(names(yoy.tmp) %in% cod.yoy$Code)])
-    if(!quiet) cat('      ...Done!')
+    if(!quiet) cat('   ...Done!')
     if(!quiet) cat('\n Calculating recruits')
     ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
     ## Number and weight of individual at age in each reproduction perior  ##
     ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~##
     coh.fg  <- group.csv$NumCohorts[sp.dat]
     cod.fg  <- group.csv$Code[sp.dat]
-    time    <- ncvar_get(nc.out, 't')
+    time    <- ncvar_get(nc.out, 't') / 86400  ## to have the time step in days
     spw     <- NULL
     nam     <- NULL
     SSB.tot <- NULL
@@ -118,8 +118,9 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         SSB.fg   <- NULL
         num.fg   <- NULL
         ## time of spawning
-        time.stp <- seq(from = 0, by = 365, to = length(time))  + rec$Time.sp[fg.row]
-        time.stp <- time.stp[time.stp < length(time)]
+        time.stp <- seq(from = 0, by = 365, to = tail(time, 1))  + rec$Time.sp[fg.row]
+        time.stp <- time.stp[time.stp < tail(time, 1)]
+        time.stp <- sapply(time.stp, function(x) which.min(abs(x - time)))
         spw.coh  <- list()
         ssb.coh  <- list()
         for(coh in 1 : coh.fg[fg]){
@@ -191,11 +192,11 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     rownames(num.tot) <- nam
     rownames(spw)     <- nam
     rownames(SSB.tot) <- nam
-    if(!quiet) cat('      ...Done!')
+    if(!quiet) cat('        ...Done!')
     if(!quiet) cat('\n\n # -  -  -  -  -  -  - #')
     if(!quiet) cat('\n # -     Step 3    -   #')
     if(!quiet) cat('\n # -  -  -  -  -  -  - #')
-    if(!quiet) cat('\n\n Plotting \n\n')
+    if(!quiet) cat('\n\n  -  - Plotting -  -  \n\n')
     shinyApp(
         ui <- navbarPage('Atlantis Recruitment Tool',
                          tabPanel('Recruits and YOY',
@@ -228,8 +229,8 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                                   ),
     function(input, output, session) {
         time.stp <- reactive({
-            time.stp <- seq(from = 0, by = 365, to = length(time))  + rec$Time.sp[rec$FG == input$sp]
-            time.stp <- time.stp[time.stp < length(time)]
+            time.stp <- seq(from = 0, by = 365, to = tail(time, 1))  + rec$Time.sp[rec$FG == input$sp]
+            time.stp <- time.stp[time.stp < tail(time, 1)]
         })
         ## recruitment model
          output$Rec.mod <- renderText({
