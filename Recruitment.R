@@ -249,16 +249,21 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             num.fg   <- num.tot[input$sp, ]
             sp.plt   <- paste0(input$sp, '.0')
             if(mod == 3){
-                recruit  <- na.omit(unlist(BH.rec(spawn.fg, rec$Alpha[rec$FG == input$sp], rec$Beta[rec$FG == input$sp], biom.fg)))
-                new.rec  <- na.omit(unlist(BH.rec(spawn.fg, input$new.alpha, input$new.beta, biom.fg)))
+                recruit  <- unlist(BH.rec(spawn.fg, rec$Alpha[rec$FG == input$sp], rec$Beta[rec$FG == input$sp], biom.fg))
+                new.rec  <- unlist(BH.rec(spawn.fg, input$new.alpha, input$new.beta, biom.fg))
             } else if(mod == 12){
-                recruit <- na.omit(rec$Alpha[rec$FG == input$sp] * num.fg)
-                new.rec <- na.omit(input$new.alpha  * num.fg)
+                recruit <- rec$Alpha[rec$FG == input$sp] * num.fg
+                new.rec <- input$new.alpha  * num.fg
             }
+            recruit[is.na(recruit)] <- 0
+            new.rec[is.na(new.rec)] <- 0
             rec.bio  <- recruit * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
             new.bio  <- new.rec * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
             yoy.fg   <- data.frame(Time = yoy$Time, Rec = yoy[, which(names(yoy) == sp.plt)])
             dif      <- which(diff(yoy.fg$Rec) != 0) + 1
+            if(length(dif) != length(time.stp())) {
+                dif <- c(dif, time.stp()[(length(dif) + 1) : length(time.stp())] + (dif[1] - time.stp()[1]))
+            }
             n.yoy    <- yoy.fg[dif, 2]
             Time.yoy <- yoy.fg[dif, 1]
             n.f.yoy  <- f.yoy[dif, c(1, which(names(f.yoy) == sp.plt))]
