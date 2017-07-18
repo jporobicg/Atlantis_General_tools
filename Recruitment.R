@@ -95,6 +95,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         names(pp.list)[l.pp] <- pp.cod[l.pp]
     }
     pp.list[['Light']] <- ncvar_get(nc.out, 'Light')
+    pp.list[['Eddy']]  <- ncvar_get(nc.out, 'eddy')
     numlay             <- ncvar_get(nc.out, 'numlayers')
     n.box              <- dim(pp.list[['Light']])[2]
     if(!quiet) cat('          ...Done!')
@@ -245,11 +246,11 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                                       column(2,
                                              wellPanel(
                                                  tags$h3('Functional Group'),
-                                                 selectInput('sp.pp', 'Functional Group 1', as.character(c(pp.cod, 'Light'))),
-                                                 selectInput('sp2.pp', 'Functional Group 2', as.character(c('Light', pp.cod))),
+                                                 selectInput('sp.pp', 'Functional Group 1', as.character(c(pp.cod, 'Eddy', 'Light'))),
+                                                 selectInput('sp2.pp', 'Functional Group 2', as.character(c('Light', 'Eddy', pp.cod))),
                                                  selectInput('s.box', 'Box', 0 : (n.box - 1)),
                                                  checkboxInput('l.prop', 'Layer-Proportion', TRUE),
-                                                 checkboxInput('b.prop', 'Box-Proportion', TRUE),
+                                                 checkboxInput('b.prop', 'Box-Proportion', FALSE),
                                                  checkboxInput('log.v', 'Logarithm', FALSE)
                                              )
                                              ),
@@ -310,7 +311,6 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             })
             ## Out Primary producers List
             o.pp <- reactive({
-                                        #browser()
                 box         <- as.numeric(input$s.box) + 1
                 ly.box      <- numlay[box]
                 out.pp.list <- list()
@@ -324,6 +324,9 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                     } else {
                         out.pp.list[[i]]       <- array(0, dim = c(ly.box, length(pp.list[[i]][box, ])))
                         out.pp.list[[i]][1, ]  <- pp.list[[i]][box, ]
+                        if(names(pp.list)[i]  == 'Eddy'){
+                            out.pp.list[[i]] <- matrix(rep(pp.list[[i]][box, ], ly.box), nrow = ly.box, byrow = TRUE)
+                        }
                     }
                     out.pp.list[[i]][out.pp.list[[i]] <= 1e-8] <- 0 ## removing ceros from atlatnis
                     if(input$l.prop == TRUE & input$b.prop == FALSE){
