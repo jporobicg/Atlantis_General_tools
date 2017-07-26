@@ -102,7 +102,7 @@ growth.pp <- function(ini.nc.file, grp.file, prm.file, out.nc.file){
                                              )
                                              ),
                                       column(10,
-                                             plotOutput('plot1', width = "100%", height = "400px")
+                                             plotOutput('plot1', width = "100%", height = "700px")
                                              )
                                   )
                                   ),
@@ -173,15 +173,15 @@ growth.pp <- function(ini.nc.file, grp.file, prm.file, out.nc.file){
             ## STOP
             observeEvent(input$exitButton, {stopApp()})
             output$plot1 <- renderPlot({
-                par(mfrow = c(2, 2), mar = c(0, 3, 1, 0), oma = c(4, 4, 0.5, 0.5))
+               par(mfrow = c(2, 2), mar = c(0, 3, 1, 0), oma = c(4, 4, 0.5, 0.5))
                 ## growth
                 ran <- range(unlist(growth.fin()), finite = TRUE)
-                plot(growth.fin()[, 1], axes = FALSE, ylim = ran, bty = 'n', type = 'b',
-                     lty = 2, pch = 19, col = color[1], ylab = '', main = 'Growth')
+                plot(growth.fin()[, 1], axes = FALSE, ylim = ran, bty = 'n', type = 'l',
+                     lty = 1, pch = 19, col = color[1], ylab = '', main = 'Growth')
                 axis(2, at = round(seq(ran[1], ran[2], length.out = 5), 3), las = 1, line =  - .7)
                 if(ncol(growth.fin()) > 1){
                     for( j in 2 : ncol(growth.fin())){
-                        lines(growth.fin()[, j], type = 'b', pch = 19, lty = 2, col = color[j])
+                        lines(growth.fin()[, j], type = 'l', pch = 19, lty = 1, col = color[j])
                     }
                 }
                 ## Nutrients
@@ -191,12 +191,12 @@ growth.pp <- function(ini.nc.file, grp.file, prm.file, out.nc.file){
                 } else {
                     plt.nut <- lim.nut.fin()
                 }
-                plot(plt.nut[1, ], axes = FALSE, ylim = ran, bty = 'n', type = 'b',
-                     lty = 2, pch = 19, col = color[1], ylab = '', main = 'Nutrients limitation')
+                plot(plt.nut[1, ], axes = FALSE, ylim = ran, bty = 'n', type = 'l',
+                     lty = 1, pch = 19, col = color[1], ylab = '', main = 'Nutrients limitation')
                 axis(2, at = round(seq(ran[1], ran[2], length.out = 5), 3), las = 1, line =  - .7)
                 if(nrow(plt.nut) > 1){
                     for( j in 2 : nrow(plt.nut)){
-                        lines(plt.nut[j, ], type = 'b', pch = 19, lty = 2, col = color[j])
+                        lines(plt.nut[j, ], type = 'l', pch = 19, lty = 1, col = color[j])
                     }
                 }
                 ## light
@@ -206,19 +206,21 @@ growth.pp <- function(ini.nc.file, grp.file, prm.file, out.nc.file){
                 } else {
                     plt.light <- lim.light.fin()
                 }
-                plot(plt.light[1, ], yaxt = 'n', ylim = ran, bty = 'n', type = 'b',
-                     lty = 2, pch = 19, col = color[1], ylab = '', main = 'Light limitation')
+                plot(plt.light[1, ], yaxt = 'n', ylim = ran, bty = 'n', type = 'l',
+                     lty = 1, pch = 19, col = color[1], ylab = '', main = 'Light limitation')
                 axis(2, at = round(seq(ran[1], ran[2], length.out = 5), 3), las = 1, line =  - .7)
                 if(nrow(plt.light) > 1){
                     for( j in 2 : nrow(plt.light)){
-                        lines(plt.light[j, ], type = 'b', pch = 19, lty = 2, col = color[j])
+                        lines(plt.light[j, ], type = 'l', pch = 19, lty = 1, col = color[j])
                     }
                 }
                 ## eddyes
                 ran <- range(lim.eddy.fin(), finite = TRUE)
-                plot(lim.eddy.fin(), axes = FALSE, ylim = ran, bty = 'n', type = 'b',
-                     lty = 2, pch = 19, col = color[1], ylab = '', main = 'Eddy scalar')
+                plot(lim.eddy.fin(), yaxt = 'n', ylim = ran, bty = 'n', type = 'l',
+                          lty = 1, pch = 19, col = 'orangered2', ylab = '', main = 'Eddy scalar')
                 axis(2, at = round(seq(ran[1], ran[2], length.out = 5), 3), las = 1, line =  - .7)
+                legend("topright", inset = c(-0.2, 0), legend= c(paste0('Layer - ', 1 : (ncol(growth.fin())-1)), 'Sediment', 'all-Layers'),
+                       col = c(color[1 : ncol(growth.fin())], 'orangered2'), title = 'Whater Layers')
 
             })
         }

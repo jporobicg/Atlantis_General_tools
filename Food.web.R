@@ -22,6 +22,9 @@ food.web <- function(diet.file, grp.file,  quiet = TRUE){
     if (!require('ncdf4', quietly = TRUE)) {
         stop('The package ncdf4 was not installed')
     }
+    if (!require('plotrix', quietly = TRUE)) {
+        stop('The package plotrix was not installed')
+    }
     if (!require('reshape', quietly = TRUE)) {
         stop('The package reshape was not installed')
     }
@@ -31,8 +34,11 @@ food.web <- function(diet.file, grp.file,  quiet = TRUE){
     if (!require('stringr', quietly = TRUE)) {
         stop('The package stringr was not installed')
     }
+    if (!require('data.table', quietly = TRUE)) {
+        stop('The package data.table was not installed')
+    }
     if (!require('RColorBrewer', quietly = TRUE)) {
-        stop('The package stringr was not installed')
+        stop('The package RColorBrewer was not installed')
     }
     if(!quiet) cat('  ...Done!')
     ## Reading files
@@ -41,6 +47,10 @@ food.web <- function(diet.file, grp.file,  quiet = TRUE){
     time.stp <- round(range(dat$Time), 0)
     grp.dat  <- read.csv(grp.file)
     stk      <- unique(dat$Stock)
+    if(any(names(grp.dat) == 'isPredator')){
+        names(grp.dat)[which(names(grp.dat) == 'isPredator')] <- 'IsPredator'
+        warning('You should change the name of the column \'isPredator\' for \'IsPredator\' on your group csv file')
+    }
     code.fg  <- grp.dat$Code[grp.dat$IsPredator > 0]
     if(!quiet) cat('      ...Done!')
     if(!quiet) cat('\n\n # -  -  -  -  -  -  - #')

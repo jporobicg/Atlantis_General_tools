@@ -28,20 +28,26 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     if (!require('stringr', quietly = TRUE)) {
         stop('The package stringr was not installed')
     }
-    library(RColorBrewer)
+    if (!require('data.table', quietly = TRUE)) {
+        stop('The package data.table was not installed')
+    }
+    if (!require('RColorBrewer', quietly = TRUE)) {
+        stop('The package RColorBrewer was not installed')
+    }
     ## Colours
     if(is.null(folder2)){
         if(file.exists(biomass.old.file)){
-            old.dat <- read.csv(biomass.old.file, sep = ' ')
+            old.dat.f <- biomass.old.file
         } else if (file.exists(paste(folder1, biomass.old.file, sep = "/"))){
-            old.dat <- read.csv(paste(folder1, biomass.old.file, sep = "/"), sep = ' ')
+            old.dat.f <- paste(folder1, biomass.old.file, sep = "/")
         } else {
             stop('You need to provide a path to the old file')
         }
     } else {
-        old.dat <- read.csv(paste(folder2, biomass.old.file, sep = "/"), sep = ' ')
+        old.dat.f <- paste(folder2, biomass.old.file, sep = "/")
     }
-    cur.dat <- read.csv(paste(folder1, biomass.curr.file, sep = "/"),sep = ' ')
+    old.dat <- data.frame(fread(old.dat.f, header = TRUE, sep = ' ', showProgress = FALSE))
+    cur.dat <- data.frame(fread(paste(folder1, biomass.curr.file, sep = "/"), sep = ' '))
     grp     <- read.csv(groups.csv)
     grp     <- grp[grp$IsTurnedOn == 1, ]$Code
     sub.old <- cbind(old.dat[c('Time', as.character(grp))], Simulation = 'previous')
@@ -59,7 +65,7 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     colnames(dat.tot) <- names.fg
     dat.tot           <- melt(dat.tot, id = c('Time', 'Simulation'))
     ## Diet Analysis
-    diet.file <- read.csv(diet.file, sep=' ')
+    diet.file <- data.frame(fread(diet.file, header=TRUE, sep = ' ', showProgress = FALSE))
     hab.chk <- FALSE
     if(any('Habitat' == colnames(diet.file))) hab.chk <- TRUE
     ##browser()
