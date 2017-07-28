@@ -1,6 +1,24 @@
 recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.file,  quiet = TRUE){
-    txtHelp <- "<h2>Summary</h2>"
-    txtHelp <- paste(txtHelp, "<p>This code Helps to calibrate the recruitment for <b>Atlantis</b> run. </p>")
+    txtHelp <- "<h2>Summary Recruit and YOY page</h2>"
+    txtHelp <- paste(txtHelp, "<p>This code Helps to calibrate the recruitment for <b>Atlantis</b> based on the recruitment and allows you to test new values</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Rec_model</b> Recruitment model used for the funtional group</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Alpha</b> Current value of Alpha ( on the .prm file)</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Beta</b> Current value of Alpha ( on the .prm file)</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Initial YOY</b> Initial value of Young of the Year (YOY) for this functional groups reported in the 'yoy.file' Atlatnis output</p>")
+    txtHelp <- paste(txtHelp, "<p><b>New Alpha</b> You can put a new value for Alpha and calculate a new YOY for that new value</p>")
+    txtHelp <- paste(txtHelp, "<p><b>New Beta</b> You can put a new value for Beta and calculate a new YOY for that new value</p>")
+    txtHelp <- paste(txtHelp, "<h4>Outputs</h4>")
+    txtHelp <- paste(txtHelp, "<p><b>Plot 1</b> YOY and Larvaes calcualted for ATLANTIS; new larvae and new YOY values calculated using <b>New Alpha</b> and <b>New Beta</b> values </p>")
+    txtHelp <- paste(txtHelp, "<p><b>Plot 2</b> Proportion of the YOY compared with the initial value (YOY<sub>0</sub></p>")
+    txtHelp <- paste(txtHelp, "<p><b>Table</b> Output from both plots by each reproduction period</p>")
+    txtHelp <- paste(txtHelp, "<h2>Summary Growth Zooplankton and Primare producer</h2>")
+    txtHelp <- paste(txtHelp, "<p><b>Functional group 1 </b> and <b>Functional group 2</b> allow you to highlight the FGs on the plots</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Box</b> Select the box that you are interested</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Layer-Proportion</b> Each time serie on the plot is scaled between 0 and 1 in each layer (devided by the highest value of the time serie on that specific layer and box)  (<i>Default = TRUE</i>)</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Box-Proportion</b> Each time serie on the plot is scaled between 0 and 1 (devided by the highest value of the time serie on that box)  (<i>Default = FALSE</i>)</p>")
+    txtHelp <- paste(txtHelp, "<p><b>Logarithm</b> Lobarirth of the time serie(<i>Default = FALSE</i>)</p>")
+    txtHelp <- paste(txtHelp, "<h4>Outputs</h4>")
+    txtHelp <- paste(txtHelp, "<p>One Plot for layer with the time series of <b><i>Zooplankton</i></b>, <b><i>Primary Producers</i></b>, <b><i>Light</i></b> and <b><i>Eddies</i></b></p>")
     ## Libraries
     if(!quiet) cat('\n\n # -  -  -  -  -  -  - #')
     if(!quiet) cat('\n # -     Step 1    -   #')
@@ -241,7 +259,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                                              )
                                   )
                                   ),
-                         tabPanel('Growth Zooplancton and PPs',
+                         tabPanel('Growth Zoo and PPs',
                                   fluidRow(
                                       column(2,
                                              wellPanel(
@@ -259,7 +277,12 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                                              )
                                   )
                                   ),
-                         ## -- Exit --
+                         ## -  -  Help
+                         tabPanel("Help",
+                                  fluidPage(HTML(txtHelp)
+                                            )
+                                  ),
+                         ## -  - Exit
                          tabPanel(
                              actionButton("exitButton", "Exit")
                          )

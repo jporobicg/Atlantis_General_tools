@@ -649,7 +649,7 @@ weights <- function(FG, weight, metric = 'mg', wet = TRUE){
 ##' @param len Vector witht he length of the at Age class of the functional groups
 ##' @param height Vector of the ratio height compare to the length at age of the functinal group, if is not provided the stimation would be using 1/5 of the total length
 ##' @param ratio is the ratio between the height and the with of the individual. In other words, if the ratio is .5, the width is onlye the hal of the height for thar specie. If is not provided the value of width would be the same than height
-##' @param time.l Vector proportion of time invested for the specie searching for food.
+##' @param time.l Vector proportion of time in a day invested for the specie searching for food.
 ##' @param max.speed Maximum speed reported for the functional group. That set the high boundary for the calculation of the speed
 ##' @param by.group Arrange the output for a easy manipulation
 ##' @return A vector witht the values of clereances for each functional group in mgNm3d-1
