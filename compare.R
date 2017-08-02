@@ -2,16 +2,14 @@
 ##'
 ##' .. content for \details{} ..
 ##' @title
-##' @param folder1 Folder that contain the current Atlantis outputs
-##' @param folder2 Folder that contain the old Atlantis outputs files. If empty the folder1 would be use
-##' @param biomass.old.file Old output file
-##' @param biomass.curr.file Current file
+##' @param b.old.file Old output biomass file from Atlantis.  usually 'output[YOUR_Model_NAME]BiomIndx.txt'
+##' @param b.curr.file Current output biomass file from Atlantis.  usually 'output[YOUR_Model_NAME]BiomIndx.txt'
 ##' @param groups.csv group csv file
 ##' @param diet.file output file for the diet (atlantis output)
 ##' @param age.biomass output file for the biomass by age (non-standard atlantis output, make sure to put the flag 'flag_age_output' in the run.prm if you want to look at this output)
 ##' @return A shiny output (reactive html)
 ##' @author Demiurgo
-output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.file, groups.csv, diet.file, age.biomass = NULL ){
+output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.biomass = NULL ){
     ## Libraries
     if (!require('shiny', quietly = TRUE)) {
         stop('The package shiny was not installed')
@@ -34,20 +32,8 @@ output.cal <- function(folder1, folder2 = NULL, biomass.old.file, biomass.curr.f
     if (!require('RColorBrewer', quietly = TRUE)) {
         stop('The package RColorBrewer was not installed')
     }
-    ## Colours
-    if(is.null(folder2)){
-        if(file.exists(biomass.old.file)){
-            old.dat.f <- biomass.old.file
-        } else if (file.exists(paste(folder1, biomass.old.file, sep = "/"))){
-            old.dat.f <- paste(folder1, biomass.old.file, sep = "/")
-        } else {
-            stop('You need to provide a path to the old file')
-        }
-    } else {
-        old.dat.f <- paste(folder2, biomass.old.file, sep = "/")
-    }
-    old.dat <- data.frame(fread(old.dat.f, header = TRUE, sep = ' ', showProgress = FALSE))
-    cur.dat <- data.frame(fread(paste(folder1, biomass.curr.file, sep = "/"), sep = ' '))
+    old.dat <- data.frame(fread(b.old.file, header = TRUE, sep = ' ', showProgress = FALSE))
+    cur.dat <- data.frame(fread(b.curr.file, header = TRUE, sep = ' ', showProgress = FALSE))
     grp     <- read.csv(groups.csv)
     grp     <- grp[grp$IsTurnedOn == 1, ]$Code
     sub.old <- cbind(old.dat[c('Time', as.character(grp))], Simulation = 'previous')
