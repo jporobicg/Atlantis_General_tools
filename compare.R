@@ -188,25 +188,37 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
         ## Link the input for the different tabs with your original data
         ## Create the plots
         function(input, output, session) {
+            diet.time <- reactive({
+                new.diet[new.diet$Time == input$Time, ]
+            })
+            if(!is.null(age.biomass)){
+                thr.time <- reactive({
+                    thr.time <- diet.time()[diet.time()$value > input$Thr4, ]
+                })
+            } else {
+                thr.time <- reactive({
+                    thr.time() <- diet.time()[diet.time()$value > input$Thr2, ]
+                })
+            }
             if(!is.null(age.biomass)){
                 pred.AgeGroup <- reactive({
                     if(hab.chk){
-                        pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG4, ]
+                        pred.new <- thr.time()[thr.time()$Predator == input$FG4, ]
                     } else {
-                        pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG4 & new.diet$Stock == as.numeric(input$Stocks4), ]
+                        pred.new <- thr.time()[thr.time()$Predator == input$FG4 & thr.time()$Stock == as.numeric(input$Stocks4), ]
                     }
-                    pred.new <- pred.new[pred.new$value > input$Thr4, ]
                 })
             } else {
                 pred.AgeGroup <- reactive({
                     if(hab.chk){
-                        pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG2, ]
+                        pred.new <- diet.time()[new.diet$Predator == input$FG2, ]
                     } else {
-                        pred.new <- new.diet[new.diet$Time == input$Time & new.diet$Predator == input$FG2 & new.diet$Stock == as.numeric(input$Stocks2), ]
+                        pred.new <- diet.time()[new.diet$Predator == input$FG2 & new.diet$Stock == as.numeric(input$Stocks2), ]
                     }
-                    pred.new <- pred.new[pred.new$value > input$Thr2, ]
                 })
             }
+
+
             predator <- reactive({
                 if(hab.chk){
                     pred.new <- new.diet[new.diet$Predator == input$FG & new.diet$Habitat == input$Stocks, ]
