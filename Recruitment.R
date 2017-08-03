@@ -65,9 +65,10 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     rec       <- rec[complete.cases(rec), ] ## avoiding NAs
     rec       <- cbind(rec, Alpha = NA, Beta = NA, KSPA = NA, FSP = NA, Time.sp  = NA, Period.sp = NA,
                        Time.rec = NA, Period.rec = NA, XCN = text2num(prm, 'X_CN', FG = 'look')[1, 2],
-                       XRS = text2num(prm, 'X_RS', FG = 'look')[1, 2])
+                       XRS = text2num(prm, 'X_RS', FG = 'look')[1, 2], Rec.SNW = NA, Rec.RNW = NA)
     sps    <- gsub(pattern = 'flagrecruit', '', rec$FG)
     rec$FG <- sps
+    max.gr <- with(group.csv, max(NumCohorts[IsTurnedOn == 1]))
     FSPB   <- NULL
     if(!quiet) cat('\n Reading parameters')
     t = 1 ## counter
@@ -80,16 +81,16 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             rec$FSP[fg.r]       <- text2num(prm, paste0('FSP_', sps[fg.r]), FG = 'look')[1, 2]
             ## Proportion of mature at age
             fspb.tmp            <- text2num(prm, paste0('FSPB_', sps[fg.r]), FG = sps[fg.r], Vector = TRUE)
-            len                 <- ifelse(t == 1, length(fspb.tmp), ncol(FSPB))
-            fspb.tmp            <- c(fspb.tmp, rep(0, len - length(fspb.tmp)))
+            fspb.tmp            <- fspb.tmp[!is.na(fspb.tmp)]
+            fspb.tmp            <- c(fspb.tmp, rep(0, (max.gr - length(fspb.tmp))))
             FSPB                <- rbind(FSPB, fspb.tmp)
             rownames(FSPB)[t]   <- as.character(sps[fg.r])
             t                   <- t + 1
         } else if(rec$Value[fg.r] == 1 || rec$Value[fg.r] == 12){ ## constant recruitment
             rec$Alpha[fg.r]     <- text2num(prm, paste0('KDENR_', sps[fg.r]), FG = 'look', Vector = TRUE)[1]
             fspb.tmp            <- text2num(prm, paste0('FSPB_', sps[fg.r]), FG = sps[fg.r], Vector = TRUE)
-            len                 <- ifelse(t == 1, length(fspb.tmp), ncol(FSPB))
-            fspb.tmp            <- c(fspb.tmp, rep(0, len - length(fspb.tmp)))
+            fspb.tmp            <- fspb.tmp[!is.na(fspb.tmp)]
+            fspb.tmp            <- c(fspb.tmp, rep(0, (max.gr - length(fspb.tmp))))
             FSPB                <- rbind(FSPB, fspb.tmp)
             rownames(FSPB)[t]   <- as.character(sps[fg.r])
             t                   <- t + 1
@@ -98,7 +99,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         rec$Period.sp[fg.r] <- text2num(prm, paste0(sps[fg.r], '_spawn_period'), FG = 'look')[1, 2]
         rec$Time.rec[fg.r]  <- text2num(prm, paste0(sps[fg.r], '_Recruit_Time'), FG = 'look')[1, 2]
         rec$Period.rec[fg.r]<- text2num(prm, paste0('Recruit_Period_', sps[fg.r]), FG = 'look')[1, 2]
-        if(rec$Value[fg.r] != 1 || rec$Value[fg.r] != 12){
+        if(rec$Value[fg.r] != 1 && rec$Value[fg.r] != 12){
             rec$Rec.SNW[fg.r]   <- text2num(prm, paste0('KWSR_', sps[fg.r]), FG = 'look')[1, 2]
             rec$Rec.RNW[fg.r]   <- text2num(prm, paste0('KWRR_', sps[fg.r]), FG = 'look')[1, 2]
         }
@@ -106,7 +107,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     ##~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ## Primary producers section
     ##~~~~~~~~~~~~~~~~~~~~~~~~~~
-    pp.pos  <- which(group.csv$GroupType %in% c('MED_ZOO', 'LG_ZOO', 'LG_PHY', 'SM_PHY', 'PHYTOBEN', 'DINOFLAG'))
+    pp.pos  <- with(group.csv, which(GroupType %in% c('MED_ZOO', 'LG_ZOO', 'LG_PHY', 'SM_PHY', 'PHYTOBEN', 'DINOFLAG') & IsTurnedOn == 1))
     pp.fg   <- group.csv$Name[pp.pos]
     pp.cod  <- as.character(group.csv$Code[pp.pos])
     pp.list <- list()
@@ -123,9 +124,12 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     ##~~~~~~~~~~~~~~~~~~~~~~~~~##
     ##    YOY file array       ##
     ##~~~~~~~~~~~~~~~~~~~~~~~~~##
-    cod.yoy <- data.frame(Code = paste0(group.csv$Code[sp.dat], '.0'), Initial = NA)
-    nam.fg  <- group.csv$Name[sp.dat]
-    yoy.tmp <- yoy * 0
+    pwn.op   <- group.csv$Name[which(group.csv$GroupType == 'PWN')]
+    tmp.code <- paste0(group.csv$Code[sp.dat], '.0')
+    tmp.code <- tmp.code[tmp.code %in% names(yoy)]
+    cod.yoy  <- data.frame(Code = tmp.code, Initial = NA)
+    nam.fg   <- group.csv$Name[sp.dat]
+    yoy.tmp  <- yoy * 0
     for(c in cod.yoy$Code){
         yoy.tmp[, c]   <- (yoy[, c] / yoy[1, c])
     }
@@ -163,25 +167,33 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         spw.coh  <- list()
         ssb.coh  <- list()
         for(coh in 1 : coh.fg[fg]){
-            name.fg <- paste0(nam.fg[fg], coh)
-            nums    <- ncvar_get(nc.out, paste0(name.fg, '_Nums'))[, , time.stp]
-            mask    <- ifelse(nums > 1.e-16, 1, 0)
-            nums    <- nums * mask
-            rn      <- ncvar_get(nc.out, paste0(name.fg, '_ResN'))[, , time.stp] * mask
-            sn      <- ncvar_get(nc.out, paste0(name.fg, '_StructN'))[, , time.stp] * mask
-            wspi    <- sn * (1 + xrs)       ## minimum weigth for spawning
-            rat     <- ((rn  + sn ) - wspi) ## weight deficit
-            rat[(rat < 0)]   <- 0
-            spawn            <- ((wspi * FSP - KSPA)  -  rat)
-            SSB.tmp <- (ncvar_get(nc.out, paste0(name.fg, '_ResN'))[, , time.stp]  +
-                        ncvar_get(nc.out, paste0(name.fg, '_StructN'))[, , time.stp])  *
-                ncvar_get(nc.out, paste0(name.fg, '_Nums'))[, , time.stp]
+            if(nam.fg[fg] %in% pwn.op){
+                name.fg <- paste0(nam.fg[fg], '_N', coh)
+                nums    <- ncvar_get(nc.out, name.fg)[, , time.stp]
+                SSB.tmp <- nums
+                spawn   <- nums *  FSPB[pos.fspb, coh]
+                num.sp  <- spawn
+            } else{
+                name.fg <- paste0(nam.fg[fg], coh)
+                nums    <- ncvar_get(nc.out, paste0(name.fg, '_Nums'))[, , time.stp]
+                mask    <- ifelse(nums > 1.e-16, 1, 0)
+                nums    <- nums * mask
+                rn      <- ncvar_get(nc.out, paste0(name.fg, '_ResN'))[, , time.stp] * mask
+                sn      <- ncvar_get(nc.out, paste0(name.fg, '_StructN'))[, , time.stp] * mask
+                wspi    <- sn * (1 + xrs)       ## minimum weigth for spawning
+                rat     <- ((rn  + sn ) - wspi) ## weight deficit
+                rat[(rat < 0)]   <- 0
+                spawn            <- ((wspi * FSP - KSPA)  -  rat)
+                SSB.tmp <- (ncvar_get(nc.out, paste0(name.fg, '_ResN'))[, , time.stp]  +
+                            ncvar_get(nc.out, paste0(name.fg, '_StructN'))[, , time.stp])  *
+                    ncvar_get(nc.out, paste0(name.fg, '_Nums'))[, , time.stp]
+                spawn[spawn < 0] <- 0
+                spawn  <- spawn *  FSPB[pos.fspb, coh] ## individual spawn
+                spawn  <- spawn * nums      ## total spawn
+                num.sp <- nums  * FSPB[pos.fspb, coh]
+            }
             SSB.tmp <- SSB.tmp * mask
-            SSB.tmp <- SSB.tmp ##* FSPB[pos.fspb, coh]
-            spawn[spawn < 0] <- 0
-            spawn <- spawn *  FSPB[pos.fspb, coh] ## individual spawn
-            spawn <- spawn * nums      ## total spawn
-            num.sp <- nums  * FSPB[pos.fspb, coh]
+            SSB.tmp <- SSB.tmp
             spw.coh[[coh]] <- spawn    ## spawning by time step and cohort
             ssb.coh[[coh]] <- SSB.tmp ## Biomass by time step and cohort
             if(length(dim(spawn)) > 2){
@@ -297,7 +309,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             ## recruitment model
             output$Rec.mod <- renderText({
                 mod   <- rec$Value[rec$FG == input$sp]
-                model <- ifelse(mod == 1, 'Constant	recruitment',
+                model <- ifelse(mod == 1, 'Constant recruitment',
                          ifelse(mod == 2, 'Determined by chlA',
                          ifelse(mod == 3, 'Beverton-Holt',
                          ifelse(mod == 4, 'Random Lognormal',
@@ -316,23 +328,30 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                 } else if(mod == 12){
                     recruit <- rec$Alpha[rec$FG == input$sp] * num.fg
                     new.rec <- input$new.alpha  * num.fg
+                }else if(mod == 1){
+                    recruit <- rec$Alpha[rec$FG == input$sp]  * rep(1, length(num.fg))
+                    new.rec <- input$new.alpha * rep(1, length(num.fg))
                 }
                 recruit[is.na(recruit)] <- 0
                 new.rec[is.na(new.rec)] <- 0
-                rec.bio  <- recruit * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
-                new.bio  <- new.rec * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
-                yoy.fg   <- data.frame(Time = yoy$Time, Rec = yoy[, which(names(yoy) == sp.plt)])
-                dif      <- which(diff(yoy.fg$Rec) != 0) + 1
-                if(length(dif) != length(time.stp())) {
-                    dif <- c(dif, time.stp()[(length(dif) + 1) : length(time.stp())] + (dif[1] - time.stp()[1]))
+                if(mod == 1 || mod == 12){
+                    rec.bio  <- recruit
+                    new.bio  <- new.rec
+                } else {
+                    rec.bio  <- recruit * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
+                    new.bio  <- new.rec * (rec$Rec.SNW[rec$FG == input$sp] + rec$Rec.RNW[rec$FG == input$sp]) * rec$XCN[rec$FG == input$sp] * mg2t
                 }
+                yoy.fg   <- data.frame(Time = yoy$Time, Rec = yoy[, which(names(yoy) == sp.plt)])
+                dif      <- sapply(time.stp(), function(x){ which.min(abs(x - yoy.fg[, 1]))})
                 n.yoy    <- yoy.fg[dif, 2]
                 Time.yoy <- yoy.fg[dif, 1]
                 n.f.yoy  <- f.yoy[dif, c(1, which(names(f.yoy) == sp.plt))]
+                rec.bio  <- rec.bio[1 : length(time.stp())]
+                new.bio  <- new.bio[1 : length(time.stp())]
                 prop.dif <- yoy.fg$Rec[dif] / rec.bio
                 fst.val  <- (new.bio * prop.dif) /  yoy.fg$Rec[1]
                 N.YOY    <- (new.bio * prop.dif)
-                df.end   <- data.frame(Rec = rec.bio, N.YOY = N.YOY, N.Rec = new.bio, BYOY = n.yoy, TYOY = Time.yoy, PrpYOY = n.f.yoy[, 2], Prp.st = fst.val, P.diff = prop.dif)
+                df.end   <- data.frame(Rec = rec.bio, N.YOY = N.YOY, N.Rec = new.bio, BYOY = n.yoy, TYOY = Time.yoy, PrpYOY = n.f.yoy[, 2], Prp.st = fst.val, P.diff = prop.dif, Model = mod)
             })
             ## Out Primary producers List
             o.pp <- reactive({
@@ -391,7 +410,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             })
             output$plot1 <- renderPlot({
                 par(mar=c(5.1, 4.1, 4.1, 8.1), xpd = TRUE)
-                plot(rec.bio()$TYOY, rec.bio()$BYOY , xlab = 'Time (days)', ylab = 'Biomass [Tonnes]', las = 1, bty = 'n', pch = 20,type = 'b',
+                plot(rec.bio()$TYOY, rec.bio()$BYOY , xlab = 'Time (days)', ylab = ifelse(rec.bio()$Model[1] %in% c(1, 12), 'Numbers', 'Biomass [Tonnes]'), las = 1, bty = 'n', pch = 20,type = 'b',
                      col = 'royalblue', ylim = c(0, max(rec.bio()$Rec, rec.bio()$BYOY, rec.bio()$N.Rec)),
                      xlim = range(c(rec.bio()$TYOY, time.stp())))
                 lines(time.stp(), rec.bio()$Rec, type = 'b', pch = 20, col = 'red4')

@@ -137,7 +137,7 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
                                                  } else {
                                                      selectInput('Stocks', 'Stocks :', stocks)
                                                  },
-                                                 numericInput("Thr", "Threshold :", min = 1e-16,  max = 1, value = 1e-4, step = 0.001)
+                                                 numericInput("Thr", "Threshold :", min = 1e-16,  max = 1, value = 1e-3, step = 0.001)
                                              )
                                              ),
                                       column(10,
@@ -154,7 +154,7 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
                                                      selectInput('FG2', 'Functional Group :', as.character(grp)),
                                                      if(!hab.chk) selectInput('Stocks2', 'Stocks :', stocks),
                                                      sliderInput("Time", "Simulation Time :", min = min(time),  max = max(time), value = min(time), step = diff(time)[1]),
-                                                     numericInput("Thr2", "Threshold :", min = 1e-16,  max = 1, value = 1e-4, step = 0.001)
+                                                     numericInput("Thr2", "Threshold :", min = 1e-16,  max = 1, value = 1e-3, step = 0.001)
                                                  )
                                                  ),
                                           column(10,
@@ -170,7 +170,7 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
                                                      selectInput('FG4', 'Functional Group :', as.character(grp)),
                                                      if(!hab.chk) selectInput('Stocks4', 'Stocks :', stocks),
                                                      sliderInput("Time", "Simulation Time :", min = min(time),  max = max(time), value = min(time), step = diff(time)[1]),
-                                                     numericInput("Thr4", "Threshold :", min = 1e-16,  max = 1, value = 1e-4, step = 0.001)
+                                                     numericInput("Thr4", "Threshold :", min = 1e-16,  max = 1, value = 1e-3, step = 0.001)
                                                  )
                                                  ),
                                           column(10,
@@ -197,7 +197,7 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
                 })
             } else {
                 thr.time <- reactive({
-                    thr.time() <- diet.time()[diet.time()$value > input$Thr2, ]
+                    thr.time <- diet.time()[diet.time()$value > input$Thr2, ]
                 })
             }
             if(!is.null(age.biomass)){
@@ -217,7 +217,6 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
                     }
                 })
             }
-
 
             predator <- reactive({
                 if(hab.chk){
