@@ -45,14 +45,14 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
     names.fg <- names(sub.old)
     for( fg in 2 : (ncol(sub.old) - 1)){
         dif.sim      <- mean((sub.cur[c((n.r - 10) : n.r), fg]  / sub.old[c((n.r - 10) : n.r), fg] - 1) * 100, na.rm = TRUE)
-        names.fg[fg] <-  paste(names.fg[fg], '- Diff: ', round(dif.sim, 0), '%', sep = '')
+        names.fg[fg] <- paste(names.fg[fg], '- Diff: ', round(dif.sim, 0), '%', sep = '')
     }
     dat.tot           <- rbind(sub.old, sub.cur)
     colnames(dat.tot) <- names.fg
     dat.tot           <- melt(dat.tot, id = c('Time', 'Simulation'))
     ## Diet Analysis
     diet.file <- data.frame(fread(diet.file, header=TRUE, sep = ' ', showProgress = FALSE))
-    hab.chk <- FALSE
+    hab.chk   <- FALSE
     if(any('Habitat' == colnames(diet.file))) hab.chk <- TRUE
     ##browser()
     if(hab.chk){
@@ -88,7 +88,7 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
     mycol             <- colorRampPalette(mycol)
     ## Read in and prepare the Biomass by cohort file
     if(!is.null(age.biomass)){
-        AgeGroup.file               <- read.csv(paste(folder1, age.biomass, sep = "/"), sep = ' ')
+        AgeGroup.file               <- data.frame(fread(age.biomass, header = TRUE, sep = ' ', showProgress = FALSE))
         new.AgeGroup                <- melt(AgeGroup.file, id.vars = c("Time")) %>%
             separate(., variable, into = c("variable","AgeGroup"), sep = "[.]")
         new.fract.AgeGroup          <- new.AgeGroup %>%
@@ -187,9 +187,9 @@ output.cal <- function(b.old.file, b.curr.file, groups.csv, diet.file, age.bioma
                          ),
         ## Link the input for the different tabs with your original data
         ## Create the plots
-        function(input, output, session) {
+        function(input, output, session){
             diet.time <- reactive({
-                new.diet[new.diet$Time == input$Time, ]
+                new.diet <- new.diet[new.diet$Time == input$Time, ]
             })
             if(!is.null(age.biomass)){
                 thr.time <- reactive({

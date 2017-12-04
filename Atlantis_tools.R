@@ -928,7 +928,6 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d, m.weight){
     ## numbers
     ##~ Transform into number by cohort and area
     nam <- vector('character')
-
     for(i in o.numb){
         loc         <- which(lfd$FG %in% in.bios$FG[i])
         l.prop      <- which(colnames(data) %in% in.bios$FG[i])
@@ -952,19 +951,15 @@ init.number <- function(data, in.bios, boxes, groups, lfd, cover.d, m.weight){
             #tmp.SN[j, ] <- prop * SN.at.Cohort[j]
             pos.n       <- with(groups, which(Code %in% in.bios$FG[i]))
             nam         <- c(nam, paste(groups$Name[pos.n], j, '_Nums', sep = ''))
-            #namSN       <- c(namSN, paste(groups$Name[pos.n], j, '_StructN', sep = ''))
-            #namRN       <- c(namRN, paste(groups$Name[pos.n], j, '_ResN', sep = ''))
         }
         if(i == o.numb[1]){
             out    <- tmp.N
-            #out.SN <- tmp.SN
-            #out.RN <- tmp.RN
         } else {
             out <- rbind(out, tmp.N)
-            #out.SN <- rbind(out.SN, tmp.SN)
-            #out.RN <- rbind(out.RN, tmp.RN)
         }
     }
+    nrow(out)
+    length(nam)
     rownames(out)    <- nam
     output           <- rbind(N, out, cov.dat)
     return(output)
@@ -1271,4 +1266,90 @@ clean <- function(poly, nomb){
         }
     }
     return(poly)
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Selectivity of Atlatnis
+##' @param len Length
+##' @param selb Selectividad parameter
+##' @param lsm 50% average
+##' @return the proportion
+##' @author Demiurgo
+selec <- function(len, selb, lsm){
+    psel <- 1 / (1 + exp( - selb * (len - lsm)))
+    return(psel)
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param var.name Name of the Variable
+##' @param data vector with time and
+##' @param long.name
+##' @param units
+##' @param time.unit
+##' @return
+##' @author Demiurgo
+write.ts <- function(var.name, ext.nam = NULL, data, long.name, units, time.unit = 'seconds since 1900-01-01 00:00:0.0'){
+    sink(paste0(var.name, ext.nam, '.ts'))
+    cat('# Time serie of', long.name, 'Created using the write.ts function\n')
+    cat('# -------------------------------------------------------------------\n')
+    cat('#\n')
+    cat('## COLUMNS 2\n')
+    cat('##\n')
+    cat('## COLUMN1.name Time\n')
+    cat('## COLUMN1.long_name Time\n')
+    cat('## COLUMN1.units', time.unit, '\n')
+    cat('## COLUMN1.missing_value 0\n')
+    cat('##\n')
+    cat('## COLUMN2.name', var.name,'\n')
+    cat('## COLUMN2.long_name', long.name,'\n')
+    cat('## COLUMN2.units', units,'\n')
+    cat('## COLUMN2.missing_value 0\n')
+    cat('##\n')
+    for(nr in 1 : nrow(data)){
+        cat(data[nr, ],'\n')
+    }
+    sink()
+}
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Summary of catch and CPU for bycatch
+##' @param list list with the information of Catch and trips per season/Island and Year
+##' @return data.frame with catch per trip per season per year
+##' @author Demiurgo
+sumry <- function(list){
+    list  <- data.frame(list)
+    trips <- data.frame(table(list$Season))
+    out   <- NULL
+    for(i in trips[, 1]){
+        list2 <- list[which(list$Season == i),  ]
+        tmp   <- unlist(tapply(list2$Total_unit, list2$FG, sum, na.rm = TRUE))
+        nam   <- sort(unique(list2$FG))
+        tmp   <- data.frame(Season = i, FG = nam, total_c= tmp, trips = trips[which(trips[, 1] == i), 2])
+        out   <- rbind(out, tmp)
+    }
+    out$cperT <- with(out, total_c /trips)
+    out$Year  <- unique(list$Year)
+    out$Island <- unique(list$Island)
+    return(out)
+}
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title Average by years
+##' @param dat data frame
+##' @param FGs Names of the functional groups
+##' @param years Number of years that
+##' @return A dataframe witht he average for the las 10 years
+##' @author Demiurgo
+avg.fg <- function(dat, FGs, years = 10){
+    col.n  <- which(colnames(dat) %in% FGs)
+    steps <- (365 / diff(dat[, 1])[1] ) * years
+    out    <- colMeans(tail(dat[,col.n], years))
+return(out)
 }

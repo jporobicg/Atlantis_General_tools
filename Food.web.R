@@ -113,7 +113,6 @@ food.web <- function(diet.file, grp.file,  quiet = TRUE){
             })
             ## assing the value of trophic level for the prey
             TL <- reactive({
-
                 npred         <- unique(t.prey()$Pred)
                 TL            <- NULL
                 for(pred in npred){

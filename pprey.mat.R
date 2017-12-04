@@ -592,16 +592,22 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
         text <- text[grep(pattern = pattern, text)]
         txt  <- gsub(pattern = '[[:space:]]+' ,  '|',  text)
         col1 <- col2 <- vector()
+        fg.in <- 1
         for( i in 1 : length(txt)){
             tmp     <- unlist(strsplit(txt[i], split = '|', fixed = TRUE))
             tmp2    <- unlist(strsplit(tmp[1], split = '_'))
             if(FG[1] == 'look') {
-                col1[i] <- tmp2[1]
+                col1[fg.in] <- tmp2[1]
             } else {
                 id.co   <- which(tmp2 %in% FG )
-                col1[i] <- tmp2[id.co]
+                if(length(id.co) == 0) {
+                    warning('\n The functional group ', tmp2[2], ' it is not active in your Group file (*.csv),  but the parameter ', tmp2[1], ' still on your .prm file')
+                    next()
+                }
+                col1[fg.in] <- tmp2[id.co]
             }
-            col2[i] <- as.numeric(tmp[2])
+            col2[fg.in] <- as.numeric(tmp[2])
+            fg.in       <- fg.in + 1
         }
         if(is.null(FG)) col1 <- rep('FG', length(col2))
         return(data.frame(FG = col1, Value = col2))
