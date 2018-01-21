@@ -229,7 +229,7 @@ FG <- function(data, column=1){
                ifelse(data[, column] == 'Orange roughy', 'ORO',
                ifelse(data[, column] == 'Langosta', 'SPL',
                ifelse(data[, column] == 'Cangrejo dorado', 'GCR',
-               ifelse(data[, column] %in% c('Actinia', 'Amphiura', 'Anemone', 'Erizo', 'Estrella de mar', 'Echinoide'), 'BCA',
+               ifelse(data[, column] %in% c('Actinia', 'Amphiura', 'Anemone', 'Erizo', 'Estrella de mar', 'Echinoide'), 'SUR',
                ifelse(data[, column] %in% c('Hidrozoo', 'Esponja','Bernacle', 'Black hydrozoan', 'Briozoo', 'Cucumber', 'Encrusting bryozoan', 'Hydrozoo', 'Polychaete', 'Worm', 'Sponge'), 'BFF',
                ifelse(data[, column] %in% c('Bare Rock', 'Ruble', 'Cobble', 'Rubble'), 'ROC',
                ifelse(data[, column] == 'Sand', 'SAN',
@@ -1293,23 +1293,30 @@ selec <- function(len, selb, lsm){
 ##' @param time.unit
 ##' @return
 ##' @author Demiurgo
-write.ts <- function(var.name, ext.nam = NULL, data, long.name, units, time.unit = 'seconds since 1900-01-01 00:00:0.0'){
-    sink(paste0(var.name, ext.nam, '.ts'))
-    cat('# Time serie of', long.name, 'Created using the write.ts function\n')
+write.ts <- function(var.name, ext.nam = NULL, data, long.name, units, time.unit = 'seconds since 1900-01-01 00:00:0.0', n.var = 1){
+    if(n.var > 1){
+        sink(paste0(ext.nam, '.ts'))
+    } else {
+        sink(paste0(var.name[1], ext.nam, '.ts'))
+    }
+    cat('# Time serie of', long.name[1], 'Created using the write.ts function\n')
     cat('# -------------------------------------------------------------------\n')
     cat('#\n')
-    cat('## COLUMNS 2\n')
+    cat(paste0('## COLUMNS ', 1 + n.var, '\n'))
     cat('##\n')
     cat('## COLUMN1.name Time\n')
     cat('## COLUMN1.long_name Time\n')
     cat('## COLUMN1.units', time.unit, '\n')
     cat('## COLUMN1.missing_value 0\n')
     cat('##\n')
-    cat('## COLUMN2.name', var.name,'\n')
-    cat('## COLUMN2.long_name', long.name,'\n')
-    cat('## COLUMN2.units', units,'\n')
-    cat('## COLUMN2.missing_value 0\n')
-    cat('##\n')
+    for(i in 1 : n.var){
+        val.var = 1 + i
+        cat(paste0('## COLUMN', val.var, '.name'), var.name[i],'\n')
+        cat(paste0('## COLUMN', val.var, '.long_name'), long.name[i],'\n')
+        cat(paste0('## COLUMN', val.var, '.units'), units,'\n')
+        cat(paste0('## COLUMN', val.var, '.missing_value'), '0\n')
+        cat('##\n')
+    }
     for(nr in 1 : nrow(data)){
         cat(data[nr, ],'\n')
     }
@@ -1352,4 +1359,98 @@ avg.fg <- function(dat, FGs, years = 10){
     steps <- (365 / diff(dat[, 1])[1] ) * years
     out    <- colMeans(tail(dat[,col.n], years))
 return(out)
+}
+
+
+##' @title Exponential growth model
+##' @param t time
+##' @param No initial abundance
+##' @param r growth rate
+##' @return Estiamted abundance
+##' @author Demiurgo
+mod.exp <- function(t, No, r){
+    yr1 <- min(t, na.rm = TRUE)
+    yr2 <- max(t, na.rm = TRUE)
+    nobs <- length(t)
+    nyrs <- yr2 - yr1 + 1
+    years <- yr1 : yr2
+    yobs <- rep(0, nobs)
+    x <- rep(0, nyrs)
+    x[yr1] <- No
+    for(i in yr1 : (yr2 - 1)){
+         x[i + 1] = x[i] + r * x[i]
+         }
+    for(i in 1:nobs) yobs[i] = x[t[i]]
+    return(yobs)
+   }
+
+##' @title Densodependent growth model
+##' @param t time
+##' @param No initial abundance
+##' @param r growth rate
+##' @param K carrying capacity
+##' @return Estimated abundance
+##' @author Demiurgo
+mod.denso <- function(t, No, r, K){
+    yr1 <- min(t, na.rm = TRUE)
+    yr2 <- max(t, na.rm = TRUE)
+    nobs <- length(t)
+    nyrs <- yr2 - yr1 + 1
+    years <- yr1 : yr2
+    yobs <- rep(0, nobs)
+    x <- rep(0, nyrs)
+    x[yr1] <- No
+    for(i in yr1 : (yr2 - 1)){
+         x[i + 1] = x[i] + r * x[i] * (1 - (x[i] / K))
+         }
+     for(i in 1:nobs) yobs[i]= x[t[i]]
+    return(yobs)
+   }
+
+##' @title Read Atlantis initial condition file
+##' @param nc.file netCDF initial confition file
+##' @param just.Sum This fucntion only calculate the Sum by box. If you want the mean this should be false
+##' @param file.out Name of the output file
+##' @return A csv file with the sum by box of the values in the initial condition
+##' @author Demiurgo
+transform.ini <- function(nc.file = NULL, just.Sum = TRUE, file.out = 'IniCond'){
+    nc    <- nc_open(nc.file)
+    var2d <- NULL
+    var   <- names(nc[['var']])
+    ## Ugly loop
+    for(v in 1 : length(var)){
+        var.tmp <- ncvar_get(nc, variables[v])
+        if(length(dim(var.tmp)) >= 2){ ## Avoiding problem with the variables like "numlayers" that only have one dimention
+            if(just.Sum){
+                temp2d  <- colSums(var.tmp, na.rm = TRUE)
+            } else{
+                temp2d  <- colMeans(var.tmp, na.rm = TRUE)
+            }
+            var2d   <- cbind(var2d,  temp2d)
+        } else {
+            var2d   <- cbind(var2d,  var.tmp)
+        }
+    }
+    colnames(var2d) <- var
+    if(just.Sum){
+        file <- paste0(file.out, '_Sums.csv')
+    } else {
+        file <- paste0(file.out, '_Means.csv')
+    }
+    write.table( var2d,  file,  row.names = FALSE)
+    cat(paste('file', file, 'has been created'))
+}
+
+
+
+
+##' @title Mean growth
+##' @param linf Maximum size in average
+##' @param l.cur Current size
+##' @param k.g growth
+##' @return The growth at a given size
+##' @author Demiurgo
+mgrowth <- function(linf, l.cur, k.g){
+    growth <- (linf - l.cur)*(1-exp(-k.g))
+    return(growth)
 }
