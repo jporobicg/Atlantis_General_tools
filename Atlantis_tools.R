@@ -1454,3 +1454,14 @@ mgrowth <- function(linf, l.cur, k.g){
     growth <- (linf - l.cur)*(1-exp(-k.g))
     return(growth)
 }
+
+##' @title Estimation of selectivity at size
+##' @param l50 size at which 50% is selected
+##' @param l95 size at which 95% is selected
+##' @param size Vector of size
+##' @return A vector with the selectivity
+##' @author Demiurgo
+selectivity.f <- function(l50, l95, size){
+    vect <- 1 / (1 + exp(( - log(19) * (size - l50)) / (l95 - l50)))
+    return(vect)
+}
