@@ -991,10 +991,8 @@ read.dat <- function(file){
     }
     return(A)
 }
-##' .. content for \description{} (no empty lines) ..
-##'
-##' .. content for \details{} ..
-##' @title
+
+##' @title Parameter file reader
 ##' @param text Biological parametar file for Atlatnis
 ##' @param pattern Text that you are looking
 ##' @param FG Name of the functional groups
@@ -1004,13 +1002,17 @@ read.dat <- function(file){
 text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
     if(!isTRUE(Vector)){
         text <- text[grep(pattern = pattern, text)]
-        txt  <- gsub(pattern = '[ ]+' ,  '|',  text)
+        txt  <- gsub(pattern = '[[:space:]]+' ,  '|',  text)
         col1 <- col2 <- vector()
         for( i in 1 : length(txt)){
             tmp     <- unlist(strsplit(txt[i], split = '|', fixed = TRUE))
             tmp2    <- unlist(strsplit(tmp[1], split = '_'))
-            id.co   <- which(tmp2 %in% FG )
-            col1[i] <- tmp2[id.co]
+            if(FG[1] == 'look') {
+                col1[i] <- tmp2[1]
+            } else {
+                id.co   <- which(tmp2 %in% FG )
+                col1[i] <- tmp2[id.co]
+            }
             col2[i] <- as.numeric(tmp[2])
         }
         if(is.null(FG)) col1 <- rep('FG', length(col2))
@@ -1022,7 +1024,7 @@ text2num <- function(text, pattern, FG = NULL, Vector = FALSE){
         pos   <- 1
         for( i in 1 : length(nam)){
             tmp     <- unlist(strsplit(nam[i], split = '|', fixed = TRUE))
-            if(tmp[1]== '#') next
+            if(tmp[1] %in% c('#','##', '###')) next  ## check this part!!
             fg[pos] <- tmp[1]
             if(pos == 1) {
                 pp.mat <- matrix(as.numeric(unlist(strsplit(text[l.pat[i] + 1], split = ' ', fixed = TRUE))), nrow = 1)
@@ -1345,22 +1347,28 @@ sumry <- function(list){
     out$Island <- unique(list$Island)
     return(out)
 }
+
+
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
 ##' @title Average by years
 ##' @param dat data frame
 ##' @param FGs Names of the functional groups
+##' @param start Year that you want to start to calculate the average
+##' @param n.years Number of years
+##' @param Time Vector with the dates
 ##' @param years Number of years that
 ##' @return A dataframe witht he average for the las 10 years
 ##' @author Demiurgo
-avg.fg <- function(dat, FGs, years = 10){
+avg.fg <- function(dat, FGs, start = 2000, n.years = 10, Time){
     col.n  <- which(colnames(dat) %in% FGs)
-    steps <- (365 / diff(dat[, 1])[1] ) * years
-    out    <- colMeans(tail(dat[,col.n], years))
-return(out)
+    dat2   <- dat[, col.n]
+    out    <- rowsum(dat2, format(Time, '%Y'))
+    tframe <- seq(from = which(row.names(out) == start), length = n.years)
+    out    <- colMeans(dat2[tframe, ])
+    return(out)
 }
-
 
 ##' @title Exponential growth model
 ##' @param t time
@@ -1464,4 +1472,120 @@ mgrowth <- function(linf, l.cur, k.g){
 selectivity.f <- function(l50, l95, size){
     vect <- 1 / (1 + exp(( - log(19) * (size - l50)) / (l95 - l50)))
     return(vect)
+}
+
+
+
+
+##' @title Calculate the different weigt (estructural reserve) and number of indivduals
+##' @param nc.out Netcdf out file. this is the traditional .nc file from atlantis
+##' @param grp groups csv file
+##' @param FG Functional group (selected)
+##' @param By option to aggregate the time series in just one or leave the values by cohort
+##' @param box.info Internal function
+##' @return List witht he weight (reserve and structural), total biomass (tons) and number
+##' @author Demiurgo
+nitro.weight <- function(nc.out, grp, FG, By = 'Total', box.info, mg2t, x.cn){
+    ## Age classes
+    pos.fg <- which(grp$Code == FG)
+    Bio <- Num <- SN  <- RN  <- list()
+    if(grp[pos.fg, 'NumCohorts'] > 1 & grp[pos.fg, 'GroupType'] != 'PWN'){
+        n.coh <- grp[pos.fg, 'NumCohorts']
+        for(coh in 1 : n.coh){
+            name.fg <- paste0(grp$Name[pos.fg], coh)
+            resN    <- ncvar_get(nc.out, paste0(name.fg, '_ResN'))
+            strN    <- ncvar_get(nc.out, paste0(name.fg, '_StructN'))
+            nums    <- ncvar_get(nc.out, paste0(name.fg, '_Nums'))
+            b.coh   <- (resN  + strN)  * nums * mg2t * x.cn
+            if(By %in% c('Total', 'Cohort')){
+                nums    <- apply(nums, 3, sum, na.rm = TRUE)
+                b.coh   <- apply(b.coh, 3, sum, na.rm = TRUE)
+                strN    <- apply(strN, 3, mean, na.rm = TRUE)
+                resN    <- apply(resN, 3, mean, na.rm = TRUE)
+            }
+                RN[[coh]]  <- resN
+                SN[[coh]]  <- strN
+                Bio[[coh]] <- b.coh
+                Num[[coh]] <- nums
+        }
+        if(By ==  'Total'){
+            RN  <- rowSums(matrix(unlist(RN), ncol = n.coh))
+            SN  <- rowSums(matrix(unlist(SN), ncol = n.coh))
+            Bio <- rowSums(matrix(unlist(Bio), ncol = n.coh))
+            Num <- rowSums(matrix(unlist(Num), ncol = n.coh))
+        }
+        type <- 'AgeClass'
+    } else if (grp[pos.fg, 'NumCohorts'] == 1){ ## Biomass pool
+        name.fg <- paste0(grp$Name[pos.fg], '_N')
+        biom    <- ncvar_get(nc.out, name.fg)
+        if(length(dim(biom)) == 3){
+            if(grp$GroupType[pos.fg] == 'LG_INF'){
+                biom <- apply(biom, 3, '*', box.info$VolInf)
+            }else{
+                biom <- apply(biom, 3, '*', box.info$Vol)
+            }
+            if(By == 'Total'){
+                biom <- apply(biom, 2, sum, na.rm = TRUE)
+            }
+        } else {
+            biom <- apply(biom, 2, function(x) x * box.info$info$Area)
+            if(By == 'Total'){
+                biom <- apply(biom, 2, sum, na.rm = TRUE)
+            }
+        }
+        Bio <- biom
+        type <- 'BioPool'
+    } else if(grp[pos.fg, 'NumCohorts'] > 1 & grp[pos.fg, 'GroupType']  == 'PWN'){
+        ## Some model use Agestructured biomass pools
+        for(coh in 1 : pwn.grp[pwn, 'NumCohorts']){
+            name.fg <- paste0(grp$Name[pos.fg],'_N', coh)
+            biom    <- ncvar_get(nc.out, name.fg)
+            biom    <- apply(biom, 3, '*', box.info$Vol)
+            if(By == 'Total'){
+                biom <- apply(biom, 2, sum, na.rm = TRUE)
+            }
+            Bio[[coh]] <- biom
+        }
+        type <- 'AgeBioPool'
+    }
+    return <- list(Biomass    = Bio,
+                   Numbers    = Num,
+                   Structural = SN,
+                   Reserve    = RN,
+                   Type       = type)
+}
+
+
+
+##' @title Box information
+##' @param bgm.file BGM file,  Atlantis input
+##' @param depths Cummulative depths (de max depth of each layer)
+##' @return a dataframe with information (box-id, area (m), )
+##' @author Demiurgo
+boxes.prop <- function(bgm.file, depths){
+    bgm       <- readLines(bgm.file, warn = FALSE)
+    boxes     <- text2num(bgm, 'nbox', FG = 'look')
+    out       <- NULL
+    depths    <- depths[ - which(depths == 0)]
+    max.nlyrs <- length(depths)              ## maximum number of water layers
+    vol       <- array(NA, dim = c(boxes$Value, length(depths)))
+    for(b in 1 : boxes$Value){
+        area      <- text2num(bgm, paste0('box', b - 1,'.area'), FG = 'look')
+        z         <- text2num(bgm, paste0('box', b - 1,'.botz'), FG = 'look')
+        box.lyrs  <- sum(depths <  - z$Value)
+        box.lyrs  <- pmin(box.lyrs, max.nlyrs) # bound by maximum depth
+        out       <- rbind(out, data.frame(Boxid = b - 1, Area  = area$Value, Volumen = area$Value *  -z$Value,
+                                           Depth =  -z$Value, Layers = box.lyrs))
+        vol[b, 1 : box.lyrs] <- area$Value * depths[1 : box.lyrs]
+    }
+    vol                <- cbind(out$Area, vol) # to include the sediment layer for later calculations
+    vol                <- t(vol[, ncol(vol) : 1])
+    vol2               <- vol ## arrange not for infauna
+    vol2[nrow(vol2), ] <- 0
+    if(any(out$Area < 1)) warning('\nOne (or more) of the boxes areas is less than 1m2,  Check if the right BGM file in xy coordinates')
+    out[out$Depth <= 0, 2 : ncol(out)] <- 0
+    out <- list(info   = out,
+                Vol    = vol2,
+                VolInf = vol)
+    return(out)
 }
