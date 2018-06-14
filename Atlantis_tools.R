@@ -81,11 +81,12 @@ hist.deph <- function(list.l, col.val = 1, dep.lim = NULL, n.file = 'Rfile', sav
         if(is.null(dim(data))){
             ## For FG with juvenil and adult stages
             for(j in 1 : 2){
+                #browser()
                 data2             <- data[[j]]
                 depth.dist        <- hist(data2[, col.val], breaks = seq(from = min.d, to = max.d, length = 9), plot = FALSE)
                 depth.dist$counts <- with(depth.dist, counts / sum(counts))
                 with(depth.dist, plot(counts,  - mids, type = 'b', pch = 19, las = 1, bty = 'n',
-                                      ylab = ifelse(isTRUE(relative), 'Layer', 'Depth'), xlab  =  'Density', main = paste(data2$FG[1], data2$Stage[1], sep = '\n'),
+                                      ylab = ifelse(isTRUE(relative), 'Atlantis depth layer', 'Depth'), xlab  =  'Density', main = paste(data2$FG[1], data2$Stage[1], sep = '\n'),
                                       xlim = c(0, max(counts) * 1.01), ylim = c( - max.d, 0)))
                 with(depth.dist, abline(h =  - breaks, lty = 2, col = 'grey'))
                 output[[count]]   <- rev(with(depth.dist, counts))
@@ -96,7 +97,7 @@ hist.deph <- function(list.l, col.val = 1, dep.lim = NULL, n.file = 'Rfile', sav
             depth.dist            <- hist(data[, col.val], breaks = seq(from = min.d, to = max.d, length = 9), plot = FALSE)
             depth.dist$counts     <- with(depth.dist, counts / sum(counts))
             with(depth.dist, plot(counts,  - mids, type = 'b', pch = 19, las = 1, bty = 'n',
-                                  ylab = ifelse(isTRUE(relative), 'Layer', 'Depth'), xlab  =  'Density', main = data$FG[1],
+                                  ylab = ifelse(isTRUE(relative), 'Atlantis depth layer', 'Depth'), xlab  =  'Density', main = data$FG[1],
                                   xlim = c(0, max(counts) * 1.01), ylim = c( - max.d, 0)))
             with(depth.dist, abline(h =  - breaks, lty = 2, col = 'grey'))
             output[[count]]       <- rev(with(depth.dist, counts))
@@ -413,7 +414,7 @@ plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, le
     library(mapdata)
     library(mapproj)
     library(RColorBrewer)
-
+    col.brew <- brewer.pal(8,"YlOrRd")
     ## Separe Lat and Lon
     lon <- as.matrix(poly$coor[, c(seq(from = 1, to = dim(poly$coor)[2], by = 2))])
     lat <- as.matrix(poly$coor[, c(seq(from = 2, to = dim(poly$coor)[2], by = 2))])
@@ -436,9 +437,9 @@ plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, le
             var     <- var / max.var
             max.var <- max(var)
             quart   <- 1 : length(var)
-            color   <- rgb(t(col2rgb("royalblue")), alpha = var * 255, maxColorValue = 255)
-            etiq     <- ceiling(seq(from = 0, to = r.m.var * 100, length = 4))
-            color.et <- rgb(t(col2rgb("royalblue")), alpha = (etiq / 100) * 255, maxColorValue = 255)
+            color   <- colorRampPalette(col.brew)(101)[round(var * 100 + 1, 0)]
+            etiq    <- ceiling(seq(from = 0, to = r.m.var * 100, length = 4))
+            color.et <- colorRampPalette(col.brew)(101)[seq(from=4, to = 101, length=3)] #rgb(t(col2rgb("royalblue")), alpha = (etiq / 100) * 255, maxColorValue = 255)
         } else {
             quart <- cut(var, breaks = unique(quantile(var, probs = c(1, 0.9, 0.7, 0.5, 0.3, 0))),
                          include.lowest = TRUE)
@@ -545,9 +546,9 @@ plot.map <- function(poly, xlim = NULL, ylim = NULL, sc = 4, OnlyPoly = TRUE, le
 
     if (!is.null(leg)){
         position <- seq(from = ylim[1], to = ylim[2], length.out = 30)
-        arrows (leg, position[27],y1 = position[29] , lwd = 3)
-        text(leg, position[26] + 0.005, 'N',  cex = 2, font = 2)
-        map.scale(x = xlim[2] - 1.5, y = position[3], ratio = FALSE, relwidth = 0.1)
+        arrows (leg, position[27],y1 = position[29] , lwd = 2)
+        text(leg, position[26] + 0.005, 'N',  cex = 1.2, font = 2)
+        map.scale(x = xlim[2] - 1.5, y = position[3] + .15, ratio = FALSE, relwidth = 0.1)
         if (!is.null(etiq)){
             legend(x = leg + .5, y = position[29],
                    title = ifelse(specie == FALSE, ifelse(div > 1, paste(leg.color, 'x', div), leg.color), paste(leg.color, '(%)')) ,
@@ -1337,7 +1338,7 @@ sumry <- function(list){
     out   <- NULL
     for(i in trips[, 1]){
         list2 <- list[which(list$Season == i),  ]
-        tmp   <- unlist(tapply(list2$Total_unit, list2$FG, sum, na.rm = TRUE))
+        tmp   <- unlist(tapply(list2$Volume, list2$FG, sum, na.rm = TRUE))
         nam   <- sort(unique(list2$FG))
         tmp   <- data.frame(Season = i, FG = nam, total_c= tmp, trips = trips[which(trips[, 1] == i), 2])
         out   <- rbind(out, tmp)
@@ -1366,7 +1367,7 @@ avg.fg <- function(dat, FGs, start = 2000, n.years = 10, Time){
     dat2   <- dat[, col.n]
     out    <- rowsum(dat2, format(Time, '%Y'))
     tframe <- seq(from = which(row.names(out) == start), length = n.years)
-    out    <- colMeans(dat2[tframe, ])
+    out    <- colMeans(out[tframe, ])
     return(out)
 }
 
@@ -1502,6 +1503,11 @@ nitro.weight <- function(nc.out, grp, FG, By = 'Total', box.info, mg2t, x.cn){
                 b.coh   <- apply(b.coh, 3, sum, na.rm = TRUE)
                 strN    <- apply(strN, 3, mean, na.rm = TRUE)
                 resN    <- apply(resN, 3, mean, na.rm = TRUE)
+            } else if(By  == 'box'){
+                nums  <- apply(nums, c(2, 3), sum, na.rm = TRUE)
+                b.coh <- apply(b.coh, c(2, 3), sum, na.rm = TRUE)
+                strN  <- apply(strN, c(2, 3), sum, na.rm = TRUE)
+                resN  <- apply(resN, c(2, 3), sum, na.rm = TRUE)
             }
                 RN[[coh]]  <- resN
                 SN[[coh]]  <- strN
@@ -1513,11 +1519,17 @@ nitro.weight <- function(nc.out, grp, FG, By = 'Total', box.info, mg2t, x.cn){
             SN  <- rowSums(matrix(unlist(SN), ncol = n.coh))
             Bio <- rowSums(matrix(unlist(Bio), ncol = n.coh))
             Num <- rowSums(matrix(unlist(Num), ncol = n.coh))
+        } else if (By == 'box'){
+            RN  <- Reduce('+', RN)
+            SN  <- Reduce('+', SN)
+            Bio <- Reduce('+', Bio)
+            Num <- Reduce('+', Num)
         }
         type <- 'AgeClass'
     } else if (grp[pos.fg, 'NumCohorts'] == 1){ ## Biomass pool
         name.fg <- paste0(grp$Name[pos.fg], '_N')
         biom    <- ncvar_get(nc.out, name.fg)
+        di      <- dim(biom)
         if(length(dim(biom)) == 3){
             if(grp$GroupType[pos.fg] == 'LG_INF'){
                 biom <- apply(biom, 3, '*', box.info$VolInf)
@@ -1526,6 +1538,9 @@ nitro.weight <- function(nc.out, grp, FG, By = 'Total', box.info, mg2t, x.cn){
             }
             if(By == 'Total'){
                 biom <- apply(biom, 2, sum, na.rm = TRUE)
+            } else if(By == 'box'){
+                biom <- array(biom, di)
+                biom <- apply(biom, c(2, 3), sum, na.rm = TRUE)
             }
         } else {
             biom <- apply(biom, 2, function(x) x * box.info$info$Area)
@@ -1588,4 +1603,66 @@ boxes.prop <- function(bgm.file, depths){
                 Vol    = vol2,
                 VolInf = vol)
     return(out)
+}
+
+
+##' @title Skill assessment of the model
+##' @param obs Observed values
+##' @param mod modeled values
+##' @return metrics  =  AAE; AE; MEF; RMSE; COR
+##' @author Demiurgo
+stats <- function(obs, mod){
+    ## Stimation of Correlation
+    COR  <- cor.test(obs, mod, method = 'spearman', use = "pairwise.complete.obs")
+    ## Average error
+    AE   <- mean(obs, na.rm = TRUE) - mean(mod, na.rm = TRUE)
+    ## Average absolute error
+    diff <- mod - obs
+    AAE  <- mean(abs(diff), na.rm = TRUE)
+    ## Mean squared error
+    RMSE <- sqrt(mean((diff) ^ 2, na.rm = TRUE))
+    ## Reliability index
+    ## Avoiding (inf values)
+    tmp                   <- log(obs / mod) ^ 2
+    tmp[is.infinite(tmp)] <- NA
+    RI                    <-  exp(sqrt(mean(tmp, na.rm = TRUE)))
+    ## Modeling efficiency
+    ME <- 1 - (RMSE ^ 2) / (var(obs, na.rm = TRUE) ^ 2)
+    if(COR$p.value == 0) COR$p.value <- '< 2.2e-16'
+    out <- data.frame(Metrics = c('Correlation (Spearman)', 'Average Error (AE)',
+                                  'Average Absolute Error (AAE)', 'Mean Squared Error (RMSE)', 'Reliability index',
+                                  'Model Efficiency (ME)'),
+                      Results = c(COR$estimate, AE, AAE, RMSE, RI, ME),
+                      p.val = c(COR$p.value, NA, NA, NA, NA, NA))
+    return(out)
+}
+
+
+##' @title Function to get the vertices of the bgm map for Atlantis
+##' @param bgm.file BGM file for atlantis
+##' @return A dataframe con witht 3 columns,  first the box_id,  then the latitude and the longitude
+##' @author Demiurgo,  based on Shane function \href{https://github.com/shanearichards/shinyrAtlantis}{shinyrAtlantis}
+make.map <- function(bgm.file){
+    bgm          <- readLines(bgm.file)
+    numboxes     <- as.numeric(gsub('nbox', '', grep("nbox", bgm, value = TRUE)))
+    proj         <- gsub("projection[[:space:]]+", "", grep("projection", bgm, value = TRUE))
+    map.vertices <- data.frame()
+    for(i in 1 : numboxes){
+        txt.find <- paste("box", i - 1, ".vert", sep = "")
+        j <- grep(txt.find, bgm)
+        for (jj in 1 : length(j)) {
+            text.split <- unlist(str_split(
+                gsub(pattern = "[\t ]+", x = bgm[j[jj]], replacement = " "), " "))
+            if (text.split[1] == txt.find) {
+                map.vertices <- rbind(map.vertices, cbind(i - 1, as.numeric(text.split[2]),
+                                                          as.numeric(text.split[3])))
+            }
+        }
+    }
+    ## Convert latlon coordinates!
+    latlon    <- proj4::project(map.vertices[, 2 : 3], proj = proj, inverse = T)
+    map       <- data.frame(Box = map.vertices[, 1],
+                            lat   = latlon$y,
+                            lon   = latlon$x)
+    return(map)
 }
