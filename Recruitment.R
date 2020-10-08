@@ -72,9 +72,9 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     rec$FG <- sps
     max.gr <- with(group.csv, max(NumCohorts[IsTurnedOn == 1]))
     FSPB   <- NULL
+    n.fg   <- NULL
     #m.spw  <- with(group.csv, Code[which(NumSpawns > 1)]) ## special option for multiple spawn
     if(!quiet) cat('\n Reading parameters')
-    t = 1 ## counter
     for(fg.r in 1 : length(sps)){
         if(!sps[fg.r] %in% group.csv$Code[sp.dat]) next()
         if(rec$Value[fg.r] == 3){  ## Beverton Holt Recruitment
@@ -87,16 +87,18 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
             fspb.tmp            <- fspb.tmp[!is.na(fspb.tmp)]
             fspb.tmp            <- c(fspb.tmp, rep(0, (max.gr - length(fspb.tmp))))
             FSPB                <- rbind(FSPB, fspb.tmp)
-            rownames(FSPB)[t]   <- as.character(sps[fg.r])
-            t                   <- t + 1
+            n.fg                <- cbind(n.fg, as.character(sps[fg.r]))
         } else if(rec$Value[fg.r] == 1 || rec$Value[fg.r] == 12){ ## constant recruitment
-            rec$Alpha[fg.r]     <- text2num(prm, paste0('KDENR_', sps[fg.r]), FG = 'look', Vector = TRUE)[1]
-            fspb.tmp            <- text2num(prm, paste0('FSPB_', sps[fg.r]), FG = sps[fg.r], Vector = TRUE)
+            rec$Alpha[fg.r]     <- text2num(prm, paste0('\\bKDENR_', sps[fg.r], '\\b'), FG = 'look', Vector = TRUE)[1]
+            fspb.tmp            <- text2num(prm, paste0('\\bFSPB_', sps[fg.r], '\\b'), FG = sps[fg.r], Vector = TRUE)
             fspb.tmp            <- fspb.tmp[!is.na(fspb.tmp)]
             fspb.tmp            <- c(fspb.tmp, rep(0, (max.gr - length(fspb.tmp))))
             FSPB                <- rbind(FSPB, fspb.tmp)
-            rownames(FSPB)[t]   <- as.character(sps[fg.r])
-            t                   <- t + 1
+            n.fg                <- cbind(n.fg, as.character(sps[fg.r]))
+        } else if(rec$Value[fg.r] == 10){
+            n.fg                <- cbind(n.fg, as.character(sps[fg.r]))
+            rec$Alpha[fg.r]     <- text2num(prm, paste0('BHalpha_', sps[fg.r]), FG = 'look')[1, 2]
+            rec$Beta[fg.r]      <- text2num(prm, paste0('BHbeta_', sps[fg.r]), FG = 'look')[1, 2]
         }
         rec$Time.sp[fg.r]   <- text2num(prm, paste0(sps[fg.r], '_Time_Spawn'), FG = 'look')[1, 2]
         rec$Period.sp[fg.r] <- text2num(prm, paste0(sps[fg.r], '_spawn_period'), FG = 'look')[1, 2]
@@ -154,7 +156,7 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
     loo     <- 1
     ## estimation of Sp by reproduction event and By FG
     for( fg in 1 : length(nam.fg)){ ## loop through functional groups
-        pos.fspb <- which(rownames(FSPB) %in% cod.fg[fg])
+        pos.fspb <- which(n.fg %in% cod.fg[fg])
         if(length(pos.fspb) == 0) next()
         fg.row   <- which(rec$FG %in% cod.fg[fg])
         xrs      <- rec$XRS[fg.row]
@@ -196,15 +198,14 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                 num.sp <- nums  * FSPB[pos.fspb, coh]
             }
             SSB.tmp <- SSB.tmp * mask
-            SSB.tmp <- SSB.tmp
             spw.coh[[coh]] <- spawn    ## spawning by time step and cohort
             ssb.coh[[coh]] <- SSB.tmp ## Biomass by time step and cohort
-            if(length(dim(spawn)) > 2){
-                spawn   <- apply(spawn, 3, sum, na.rm = TRUE)
+            if(length(dim(SSB.tmp)) > 2){
+                if(!length(spawn) == 0) spawn   <- apply(spawn, 3, sum, na.rm = TRUE)
+                if(!length(num.sp) == 0) num.sp  <- apply(num.sp, 3, sum, na.rm = TRUE)
                 SSB.tmp <- apply(SSB.tmp, 3, sum, na.rm = TRUE)
-                num.tmp <- apply(num.sp, 3, sum, na.rm = TRUE)
             }
-            num.fg      <- rbind(num.fg, num.tmp)
+            num.fg      <- rbind(num.fg, num.sp)
             sp.tmp      <- rbind(sp.tmp, spawn)   ## Spawning by functional group and Age class
             SSB.fg      <- rbind(SSB.fg, SSB.tmp) ## Spawning Stock by functional group and Age class
         }
@@ -243,8 +244,8 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
         spw     <- rbind(spw, fin.sp)
     }
     ## FG Names
-    rownames(num.tot) <- nam
-    rownames(spw)     <- nam
+    if(length(num.tot) != 0)  rownames(num.tot) <- nam
+    if(length(spw) != 0)      rownames(spw)     <- nam
     rownames(SSB.tot) <- nam
     if(!quiet) cat('        ...Done!')
     if(!quiet) cat('\n\n # -  -  -  -  -  -  - #')
@@ -317,14 +318,17 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                          ifelse(mod == 2, 'Determined by chlA',
                          ifelse(mod == 3, 'Beverton-Holt',
                          ifelse(mod == 4, 'Random Lognormal',
-                         ifelse(mod == 12, 'Fixed offspring', 'Other')))))
+                         ifelse(mod == 10, 'Beverton-Holt Biomass',
+                         ifelse(mod == 12, 'Fixed offspring', 'Other'))))))
             })
             ## Original Recruitment
             rec.bio <- reactive({
                 mod      <- rec$Value[rec$FG == input$sp]
-                spawn.fg <- spw[input$sp, ]
+                if(mod != 10){
+                    spawn.fg <- spw[input$sp, ]
+                    num.fg   <- num.tot[input$sp, ]
+                }
                 biom.fg  <- SSB.tot[input$sp, ]
-                num.fg   <- num.tot[input$sp, ]
                 sp.plt   <- paste0(input$sp, '.0')
                 if(mod == 3){
                     recruit  <- unlist(BH.rec(spawn.fg, rec$Alpha[rec$FG == input$sp], rec$Beta[rec$FG == input$sp], biom.fg))
@@ -335,9 +339,14 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
                 }else if(mod == 1){
                     recruit <- rec$Alpha[rec$FG == input$sp]  * rep(1, length(num.fg))
                     new.rec <- input$new.alpha * rep(1, length(num.fg))
+                } else if(mod == 10){
+                    recruit <- unlist(BH.rec(spawn.fg, rec$Alpha[rec$FG == input$sp], rec$Beta[rec$FG == input$sp], biom.fg, ver = 'B'))
+                    new.rec <- unlist(BH.rec(spawn.fg, input$new.alpha, input$new.beta, biom.fg, ver = 'B'))
                 }
                 ## Avoiding NaNs
-                spawn.fg[is.na(spawn.fg)] <- 0
+                if(mod != 10){
+                    spawn.fg[is.na(spawn.fg)] <- 0
+                }
                 biom.fg[is.na(biom.fg)] <- 0
                 recruit[is.na(recruit)] <- 0
                 new.rec[is.na(new.rec)] <- 0
@@ -469,9 +478,16 @@ recruitment.cal <- function(ini.nc.file, out.nc.file, yoy.file, grp.file, prm.fi
 ##' @param bio Biomass
 ##' @return The amout of recruit (Larvaes)
 ##' @author Demiurgo
-BH.rec <- function(sp, bha, bhb, bio){
-    num <- lapply(sp,  '*',  bha)
-    den <- lapply(bio,  '+',  bhb)
+BH.rec <- function(sp, bha, bhb, bio, ver= 'N'){
+    if(ver== 'N'){
+        ## calculatin the recruitment based on numbers
+        num <- lapply(sp,  '*',  bha)
+        den <- lapply(bio,  '+',  bhb)
+    } else if(ver=='B'){
+        # calculating the recruitment basen on biomass
+        num <- lapply(bio,  '*',  bha)
+        den <- lapply(bio,  '+',  bhb)
+    }
     recruit <- mapply('/', num,  den, SIMPLIFY = FALSE)
     return(recruit)
 }

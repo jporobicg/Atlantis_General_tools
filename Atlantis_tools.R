@@ -275,12 +275,12 @@ read.poly <- function(data){
 ##' @param lo ID of the column where to find the longitude
 ##' @param mult ID of the column where to find the multiplicative
 ##' @param sea ID of the column where to find the seasons
-##' @param only.s  Indicate if is only one seaon
-##' @param is.Crus Logic,  inidcating if the species are crustaceon. this is due to the use of traps in JFR
+##' @param only.s Indicate if is only one seaon
+##' @param type Case type. define of to calculate the amount by polygoc. fish (amount of fish by polygos); crustacean (deviden by the number of traps (cpp)) or effor(just the number of traps or hooks)
 ##' @param quiet Logic,  False :  will gave an outpur of each step
 ##' @return A table witht the relative abundance by polygon of each functional group
 ##' @author Demiurgo
-by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FALSE, is.Crus=FALSE, quiet = TRUE){
+by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FALSE, type = 'fish', quiet = TRUE){
     ## Function to clasified the species by polygon
     library(sp)
     lon <- as.matrix(poly$coor[, c(seq(from = 1, to = dim(poly$coor)[2], by = 2))])
@@ -304,10 +304,11 @@ by.pol <- function(poly, lista, la = 4, lo = 5, mult = 6, sea = 10, only.s = FAL
                     cat('\nNumber in polygon', sum(scal))
                     cat('\nSeason',  season, '\tPolygon(i)', poly[[2]][i, 1], '\tSample(j)', j)
                 }
-                if(!isTRUE(is.Crus)){
+                if(type == 'effort'){
+                    poly$attrib[i, j + 6] <- length(levels(as.factor(lista[[j]][which(inpol > 0), la])))
+                } else if (type  == 'fish'){
                     poly$attrib[i, j + 6] <- sum(scal, na.rm = TRUE) / sum(scal > 0)
-                #cat('\nsum :', sum(scal), '\t weight :', sum(scal>0), '\tCPUE', poly$attrib[i, j + 6])
-                } else  {
+                } else  if(type == 'crustacean'){
                     ## Devide the total catch by the number of traps
                     n.traps   <- length(levels(as.factor(lista[[j]][which(inpol > 0), la])))
                     abun.Weig <- (sum(scal) / n.traps) * (n.traps / total.traps)
@@ -647,7 +648,7 @@ weights <- function(FG, weight, metric = 'mg', wet = TRUE){
 ##' @title Clearance
 ##' @param fg Vector with the name of the functional groups
 ##' @param speed Vector with the speed in mh-1. If the Speed is nor available ('NA') the speed would be calculated using the length at age class of the FG;
-##' @param len Vector witht he length of the at Age class of the functional groups
+##' @param len Vector witht the length of the at Age class of the functional groups
 ##' @param height Vector of the ratio height compare to the length at age of the functinal group, if is not provided the stimation would be using 1/5 of the total length
 ##' @param ratio is the ratio between the height and the with of the individual. In other words, if the ratio is .5, the width is onlye the hal of the height for thar specie. If is not provided the value of width would be the same than height
 ##' @param time.l Vector proportion of time in a day invested for the specie searching for food.
@@ -657,13 +658,23 @@ weights <- function(FG, weight, metric = 'mg', wet = TRUE){
 ##' @author Demiurgo
 clearance <- function(fg = NULL, speed, len, height = NA, ratio = NULL, time.l = NULL, max.speed = NULL, alfa = NULL, beta = NULL, by.group = TRUE){
     ## General assumption, If I dont have the speed I will use the mass to calculate the speed
-    mass <- alometric((len * 100), alfa, beta) / 1000  ## in kilograms
-
+    mass   <- alometric((len * 100), alfa, beta) / 1000  ## in kilograms
+    max.age <- max(table(fg))
     ## Assumption based on Sato et al 2007 Swimming speed
     speed <- ifelse(is.na(speed), mass ^ 0.27 * 3600, speed) # speed mh-1
-    speed <- ifelse(is.na(max.speed), speed, ifelse(max.speed > speed, speed, max.speed))
-    ## I assume the the height is at least 1/5 of the length
+    ## doing this transformation by functional group. The idea is to keep the same difference between the sizes.
+    ## I'm assuming a porportionality between size and speed
+    name.fg <- unique(fg)
+    for(g in 1 : length(unique(fg))){
+        tmp.fg      <- which(fg %in% name.fg[g])
+        max.spd.tmp <- max.speed[tmp.fg]
+        speed.tmp   <- speed[tmp.fg]
+        if(!all(is.na(max.speed[tmp.fg])) && any(max.speed > speed)){
+            speed[tmp.fg] <- (speed.tmp/max(speed.tmp, na.rm=TRUE)) * max.spd.tmp
+        }
+    }
 
+    ## I assume the the height is at least 1/5 of the length
     height <- ifelse(is.na(height), len / 5, len * height)
     ## the with can be the same than the eight, but can have a deformation (flat fish)
     if(!is.null(ratio)){
@@ -673,7 +684,7 @@ clearance <- function(fg = NULL, speed, len, height = NA, ratio = NULL, time.l =
     }
     ## The time that the fish is looking for food
     if(is.null(time.l)) time.l <- 0.5
-    ## all the time is in hours, the idea is to have it per day and per area (m3)
+    ## all the time is in hours, the idea is to have it per day and per volumen (m3)
     out <- speed * height * width * 24 * time.l
     if(!is.null(fg)){
         out <- data.frame(FG = fg, Clearance = out)
@@ -682,7 +693,7 @@ clearance <- function(fg = NULL, speed, len, height = NA, ratio = NULL, time.l =
             m        <- as.vector(table(fg))
             out      <- matrix(NA, nrow = max(m), ncol = length(m))
             for(i in 1 : length(temp.out)){
-                out[, i] <- c(temp.out[[i]][, 2], rep(NA, 10 - length(temp.out[[i]][, 1])))
+                out[, i] <- c(temp.out[[i]][, 2], rep(NA, max.age - length(temp.out[[i]][, 1])))
             }
             out           <- t(out)
             rownames(out) <- names(temp.out)
